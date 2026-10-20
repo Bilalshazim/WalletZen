@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  base: '/', // Changed from '/WalletZen/' to '/' for Railway/Root hosting
+  // '/' for Railway/Netlify root hosting; the GitHub Pages workflow sets VITE_BASE=/WalletZen/
+  base: process.env.VITE_BASE || '/',
   plugins: [
     react(),
     VitePWA({
