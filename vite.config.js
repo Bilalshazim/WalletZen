@@ -2,11 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// GitHub Pages path resolution
-const base = process.env.VITE_BASE ?? '/WalletZen/';
-
 export default defineConfig({
-  base: base,
+  base: '/', // Changed from '/WalletZen/' to '/' for Railway/Root hosting
   plugins: [
     react(),
     VitePWA({
