@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { PiggyBank, Plus } from 'lucide-react';
 import AccountIcon from '../common/AccountIcon';
+import FitAmount from '../common/FitAmount';
 import GlassContainer from '../common/GlassContainer';
 import AddAccountModal from '../accounts/AddAccountModal';
 import { useFinance } from '../../context/FinanceContext';
@@ -15,13 +16,13 @@ export default function SavingsSummary() {
   const total = vaults.reduce((sum, a) => sum + (a.balance ?? 0), 0);
 
   return (
-    <GlassContainer className="relative flex flex-col overflow-hidden p-4 sm:p-6">
+    <GlassContainer className="relative flex flex-col overflow-hidden p-4 [container-type:inline-size] sm:p-6">
       <span className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#9085E9]/20 blur-3xl" />
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-ink/60 sm:text-sm">Total savings</p>
         <PiggyBank size={16} className="shrink-0 text-[#9085E9]" />
       </div>
-      <p className="mt-1 truncate text-2xl font-extrabold tracking-tight tabular-nums text-ink sm:text-4xl">{formatCurrency(total)}</p>
+      <FitAmount className="mt-1 text-ink">{formatCurrency(total)}</FitAmount>
       <p className="mt-0.5 text-[11px] text-ink/40 sm:text-xs">
         {vaults.length ? `In ${vaults.length} vault${vaults.length === 1 ? '' : 's'}` : 'No savings vault yet'}
       </p>

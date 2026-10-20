@@ -105,7 +105,7 @@ export default function TransactionHistory({ limit, onShowAll }) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search notes, categories, accounts"
-              className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink/30"
+              className="w-full bg-transparent text-base text-ink outline-none placeholder:text-ink/30 sm:text-sm"
             />
           </label>
         </div>

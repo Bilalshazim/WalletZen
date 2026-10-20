@@ -72,16 +72,16 @@ export default function CashFlowChart() {
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
           {view === 'flow' ? (
-            <BarChart data={flow} barGap={2} barCategoryGap="28%" margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
+            <BarChart data={flow} barGap={2} barCategoryGap="28%" margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="rgb(var(--ink) / 0.06)" />
               <XAxis dataKey="key" tickFormatter={formatMonth} {...AXIS} />
-              <YAxis tickFormatter={formatCompact} width={44} {...AXIS} />
+              <YAxis tickFormatter={formatCompact} width={40} {...AXIS} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgb(var(--ink) / 0.05)', radius: 8 }} />
               <Bar dataKey="income" name="Income" fill={CHART_COLORS.income} radius={[4, 4, 0, 0]} maxBarSize={18} />
               <Bar dataKey="expense" name="Expense" fill={CHART_COLORS.expense} radius={[4, 4, 0, 0]} maxBarSize={18} />
             </BarChart>
           ) : (
-            <AreaChart data={trend} margin={{ top: 8, right: 4, left: -12, bottom: 0 }}>
+            <AreaChart data={trend} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="savingsFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={CHART_COLORS.trend} stopOpacity={0.35} />
@@ -90,7 +90,7 @@ export default function CashFlowChart() {
               </defs>
               <CartesianGrid vertical={false} stroke="rgb(var(--ink) / 0.06)" />
               <XAxis dataKey="key" tickFormatter={formatMonth} {...AXIS} />
-              <YAxis tickFormatter={formatCompact} width={44} {...AXIS} />
+              <YAxis tickFormatter={formatCompact} width={40} {...AXIS} />
               <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'rgb(var(--ink) / 0.25)', strokeDasharray: '4 4' }} />
               <Area
                 type="monotone"

@@ -17,7 +17,7 @@ function Amount({ item }) {
   if (item.amount == null) return <span className="text-xs font-medium text-ink/50">Amount pending</span>;
   const estimated = item.source?.estimated;
   return (
-    <span className="text-sm font-semibold tabular-nums text-ink">
+    <span className="whitespace-nowrap text-sm font-semibold tabular-nums text-ink">
       {item.currency !== 'PKR' ? (
         <>
           {formatMoney(item.originalAmount, item.currency)} <span className="text-xs font-normal text-ink/50">≈ {formatCurrency(item.amount)}</span>
@@ -84,14 +84,14 @@ function UpcomingRow({ item, accountName, onEdit }) {
             </p>
           )}
           {bill?.syncError && <p className="truncate text-[11px] text-amber-700 dark:text-amber-300">Auto-fetch: {bill.syncError}</p>}
-          <div className="mt-1 flex items-center gap-2">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
             <StatusTag status={status} />
             {bill?.source === 'demo' && <StatusTag status="demo" />}
             <Amount item={item} />
           </div>
         </div>
       </button>
-      {action}
+      <div className="shrink-0">{action}</div>
     </li>
   );
 }

@@ -4,7 +4,7 @@ import ThemeToggle from '../common/ThemeToggle';
 import { useAuth } from '../../context/AuthContext';
 import { greeting } from '../../utils/formatters';
 
-const iconButton = 'rounded-full bg-ink/10 p-2.5 text-ink/70 transition hover:bg-ink/15 hover:text-ink';
+const iconButton = 'shrink-0 rounded-full bg-ink/10 p-2 min-[380px]:p-2.5 text-ink/70 transition hover:bg-ink/15 hover:text-ink';
 
 export default function Header({ onOpenSettings }) {
   const { user, isGuest, canSignIn, openLogin, signOut } = useAuth();
@@ -12,10 +12,10 @@ export default function Header({ onOpenSettings }) {
   const account = user.email ?? user.phoneNumber;
 
   return (
-    <header className="flex items-center gap-3">
-      <BrandLogo className="h-10 w-auto shrink-0" />
+    <header className="flex items-center gap-2 min-[380px]:gap-3">
+      <BrandLogo className="h-9 w-auto shrink-0 min-[380px]:h-10" />
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-ink/50">{greeting()},</p>
+        <p className="truncate text-xs text-ink/50">{greeting()},</p>
         <h1 className="truncate text-lg font-semibold text-ink">{name}</h1>
       </div>
 

@@ -19,7 +19,7 @@ export default function ThemeToggle() {
       onClick={() => setPreference(NEXT[preference])}
       aria-label={`${label}. Switch to ${NEXT[preference]}`}
       title={label}
-      className="rounded-full bg-ink/10 p-2.5 text-ink/70 transition hover:bg-ink/15 hover:text-ink"
+      className="shrink-0 rounded-full bg-ink/10 p-2 text-ink/70 transition hover:bg-ink/15 hover:text-ink min-[380px]:p-2.5"
     >
       <Icon size={18} />
     </button>

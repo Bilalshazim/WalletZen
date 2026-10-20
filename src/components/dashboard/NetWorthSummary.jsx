@@ -1,3 +1,4 @@
+import FitAmount from '../common/FitAmount';
 import GlassContainer from '../common/GlassContainer';
 import { useFinance } from '../../context/FinanceContext';
 import { ACCOUNT_TYPES } from '../../utils/constants';
@@ -16,17 +17,10 @@ export default function NetWorthSummary() {
   const positiveTotal = byType.reduce((sum, t) => sum + t.total, 0);
 
   return (
-    <GlassContainer className="relative flex flex-col overflow-hidden p-4 sm:p-6">
+    <GlassContainer className="relative flex flex-col overflow-hidden p-4 [container-type:inline-size] sm:p-6">
       <span className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-zen-lime/20 blur-3xl" />
       <p className="text-xs text-ink/60 sm:text-sm">Total net worth</p>
-      <p
-        className={cx(
-          'mt-1 truncate text-2xl font-extrabold tracking-tight tabular-nums sm:text-4xl',
-          netWorth < 0 ? 'text-red-600 dark:text-red-300' : 'text-ink',
-        )}
-      >
-        {formatCurrency(netWorth)}
-      </p>
+      <FitAmount className={cx('mt-1', netWorth < 0 ? 'text-red-600 dark:text-red-300' : 'text-ink')}>{formatCurrency(netWorth)}</FitAmount>
       <p className="mt-0.5 text-[11px] text-ink/40 sm:text-xs">
         Across {accounts.length} account{accounts.length === 1 ? '' : 's'}
       </p>

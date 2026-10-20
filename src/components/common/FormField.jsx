@@ -2,7 +2,7 @@ import { ChevronDown } from 'lucide-react';
 import { cx } from '../../utils/formatters';
 
 const control =
-  'w-full rounded-2xl border border-ink/10 bg-ink/5 px-4 py-3 text-sm text-ink placeholder:text-ink/30 ' +
+  'w-full rounded-2xl border border-ink/10 bg-ink/5 px-4 py-3 text-base text-ink placeholder:text-ink/30 sm:text-sm ' +
   'outline-none transition focus:border-zen-lime/60 focus:bg-ink/[0.07] focus:ring-2 focus:ring-zen-lime/20';
 
 export function Field({ label, hint, className, children }) {
