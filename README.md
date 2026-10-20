@@ -1,0 +1,148 @@
+# WalletZen
+
+Personal cashbook PWA — accounts, income/expense heads, subscriptions & utility bills, Commattie tracker and a bulk screenshot scanner.
+React + Vite + Tailwind + Recharts, with Firebase (Auth + Firestore) or a local-only fallback.
+
+## Run locally
+
+```bash
+npm install
+npm run dev        # opens http://localhost:5180/WalletZen/
+```
+
+Without Firebase keys the app runs in **guest mode**: data lives in this browser's localStorage.
+
+## Guest mode & sign-in
+
+Everyone starts as a **Guest**: the app works fully with data in this browser's localStorage, and the header shows
+**Guest Mode (Sync Disabled)**. Cloud features (currently the screenshot scanner) open a **Login to Unlock Cloud Sync**
+sheet for guests. Sign-in options: **Google**, **email link** (passwordless — Firebase Auth has no email OTP codes) and
+**Pakistani mobile OTP** (+92, invisible reCAPTCHA, 60 s resend timer).
+
+On sign-in, all guest accounts, transactions, bills and Commatties are **moved into the Firestore account automatically**
+(same record ids, so a retried migration never duplicates) and removed from the device only after the upload succeeded.
+Device preferences (theme, USD/EUR rates) stay on the device. Builds without Firebase keys stay in guest mode with every
+feature available.
+
+## Quick Lock (PIN / pattern + Face ID / fingerprint)
+
+After the first sign-in (Google, email link or mobile OTP) users are offered **Set Quick Lock**: a 4-digit PIN or a
+3×3 pattern, plus an optional **Face ID / Touch ID / fingerprint / Windows Hello** switch (WebAuthn platform
+authenticator). It can also be set up, changed or turned off any time in **Settings → Quick Lock** (guests included).
+
+- On launch, and when returning after **30 s in the background**, the app shows only the lock screen; biometrics are
+  prompted automatically (iOS may need one tap), with **Use 4-Digit PIN / Pattern** and **Login with Account
+  Credentials** (signed-in users — signs out and lets you set a new lock) as fallbacks.
+- The PIN/pattern is never stored — only a salted PBKDF2-SHA-256 hash per user. Every 5 wrong tries pause input for
+  30 s (doubling), and the pause survives reloads.
+- This is an **app lock**, not encryption: it keeps people who pick up your unlocked phone out of WalletZen, but data in
+  browser storage is not encrypted by the PIN. Biometric checks run on-device (no server verification).
+
+## Enable Firebase sync
+
+1. Create a Firebase project, add a Web app, and create **Firestore**.
+2. **Authentication → Sign-in method**: enable **Google**, **Email/Password → Email link (passwordless sign-in)** and
+   **Phone**. Phone SMS is billed by Google (the Blaze plan may be required); for development add test numbers there.
+3. Put the web config in `.env.local` (`VITE_FIREBASE_*`, see `.env.example`) and restart `npm run dev`.
+4. Publish `firestore.rules` (Firestore → Rules) so each user can only access `users/{uid}/…`.
+5. **Authentication → Settings → Authorized domains**: add `localhost` and `<your-username>.github.io` (needed for Google
+   popups, email links and reCAPTCHA).
+
+Firestore runs with a persistent offline cache, so entries made offline sync when you reconnect.
+
+## Screenshot scanner (Gemini Vision)
+
+Activity → **Scan screenshots & receipts** reads 1–50 bank/wallet screenshots or receipts at once and extracts the
+institution, amount, debit/credit, date and remaining balance. Everything lands in a review modal first: edit any field,
+untick duplicates (auto-detected), and choose whether to sync each account to the balance shown on its latest screenshot.
+
+- Put your key in `.env.local` (gitignored): `VITE_GEMINI_API_KEY=...` — get one at https://aistudio.google.com/apikey.
+  Optional: `VITE_GEMINI_MODEL` (default `gemini-3.8-flash`). Without a key, the scanner is shown as unavailable.
+- Images are downscaled on-device and sent to Gemini with `store: false` (not retained).
+
+> **Security:** Vite inlines `VITE_*` variables into the published JavaScript, so anyone can read this key from your
+> GitHub Pages site. Before deploying, lock it down in Google Cloud Console → APIs & Services → Credentials → your key:
+> - **Application restrictions → Websites:** `https://<your-username>.github.io/*` (plus `http://localhost:5180/*` for dev)
+> - **API restrictions:** Generative Language API only
+> - Optionally set a low quota / budget alert. For a fully private key, proxy Gemini through a backend instead.
+
+## Bills & subscriptions
+
+Planner → **Bills & subscriptions** manages digital subscriptions (PKR, USD or EUR, monthly/yearly), utility bills and other
+bills. **Pay & Sync Balance** logs the expense, debits the linked wallet and schedules the next cycle in one atomic write.
+USD and EUR amounts convert to PKR at the rates set in Settings (gear icon). Items due within 3 days pop up once a day on open.
+
+### Utility auto-fetch (1Bill / Kuickpay)
+
+Planner → Add → **Utility bill**: pick the biller, choose **Reference no.** or **Consumer ID** (where the biller supports
+both), enter it and tap **Fetch Latest Bill**. The unpaid amount, due date, status (Unpaid / Due soon / Overdue), billed
+month and company are shown, the bill is added to *Upcoming* on the dashboard, and **Pay & Deduct from Wallet** pays it.
+Re-fetching updates the same bill; a month you've already paid is reported as "already paid". You can also enter the
+amount manually.
+
+Electricity reference numbers (LESCO, FESCO, IESCO, GEPCO, MEPCO, PESCO, HESCO, QESCO, SEPCO, TESCO) are 14 digits plus
+a **U (Urban) / R (Rural)** code — pick it with the U/R toggle or type it as a suffix (`…406U`). **Open official bill**
+copies the reference and opens the company's PITC bill page (CAPTCHA-protected, so it can't be fetched automatically).
+
+**Demo vs live.** Without `VITE_BILL_API_URL` the app uses a built-in **demo aggregator** — deterministic sample bills,
+tagged **Demo** everywhere, *not your real bill*. Demo bills can't be paid until you enter the exact amount and due
+date from your real bill (this removes the Demo tag).
+
+**Meter owner.** Each bill shows the owner's name, father/husband name, address, meter no., tariff and sub-division when
+the live service returns them (`owner` in the response below). In demo/manual mode nothing is invented: add the details
+once from your printed bill and they stay with that reference for every later month. 1Bill and Kuickpay only offer bill inquiry to onboarded merchants,
+server-to-server, so for real data deploy a small backend holding those credentials and set `VITE_BILL_API_URL`:
+
+```
+POST {VITE_BILL_API_URL}/bills/inquiry          Authorization: Bearer <Firebase ID token>
+{ "provider": "LESCO", "idType": "reference" | "consumer", "identifier": "04111234567890" }
+→ 200 { "amount": 12450, "dueDate": "2026-11-12", "status": "unpaid" | "paid", "billingMonth": "2026-10",
+        "company": "Lahore Electric Supply Co.", "consumerName": "M. Ali", "lateAmount": 13100 }
+→ 4xx { "error": "Consumer number does not exist" }
+```
+
+The backend must also allow CORS from your GitHub Pages origin. Pending utility bills are re-polled on app open (at most
+every 12 h per bill) and via **Refresh** on the Utilities tab.
+
+## Bank & wallet icons
+
+`getAccountIcon(name)` in `src/utils/accountIcons.js` maps free-text names ("HBL", "Habib Bank Limited", "Meezan Current",
+"Easypaisa", "Cash in Hand"…) to an institution with its brand color. Account cards, transaction history and the scanner
+review show the institution's own website logo, falling back to a brand-colored initials badge (offline or no logo) and to
+a generic bank building for unknown names. Add a bank by adding one entry to `INSTITUTIONS`.
+
+## Deploy to GitHub Pages
+
+1. Set `homepage` in `package.json` to `https://<your-username>.github.io/WalletZen/`.
+2. If the repo isn't named `WalletZen`, build with `VITE_BASE=/<repo-name>/` (see `vite.config.js`).
+3. `npm run deploy` — builds and pushes `dist/` to the `gh-pages` branch.
+4. In the repo settings, set **Pages → Source** to the `gh-pages` branch.
+
+## Structure
+
+```
+src/
+  components/
+    common/        Button, Modal, Card, GlassContainer, IconCircle, SegmentedControl, BrandLogo, ThemeToggle, LogoBadge, AccountIcon,
+                   FormField, EmptyState, Toast, BottomNav, AuthScreen, SettingsModal
+    dashboard/     Header, NetWorthSummary, CashFlowChart, SpendingDonut
+    accounts/      AccountCard, AddAccountModal, AccountList
+    transactions/  TransactionForm, TransactionHistory, CategoryBadge
+    planner/       SubscriptionsPlanner, CommattieTracker, UpcomingExpenses, BillFormModal, BrandIcon,
+                   DueReminderModal, CommitteeFormModal, StatusTag
+    scanner/       BulkScreenshotScanner, TransactionPreviewModal
+  context/         AuthContext, FinanceContext, ThemeContext, SettingsContext
+  services/        firebase.js, storageService.js, geminiVisionApi.js, billAggregatorApi.js
+  utils/           constants.js, formatters.js, analytics.js, accountIcons.js
+```
+
+Every balance-changing action (transactions, Mark as Paid, Commattie installments/payouts) is committed
+as one atomic batch, so a transaction and its account balance can never drift apart.
+
+## Branding & themes
+
+The app follows the system light/dark setting, with a System → Light → Dark toggle in the header.
+Theme colors live as CSS variables in `src/index.css` (`--ink`, `--surface`, `--accent`, glass tokens).
+
+Logo sources are in `brand/` (light and dark artwork). After replacing one, run `npm run icons` to rebuild
+the transparent in-app logos (`public/brand/`), theme-aware favicons and the PWA/Apple install icons.

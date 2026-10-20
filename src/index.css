@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Light theme (default). Ink is the navy from the WalletZen logo. */
+  :root {
+    color-scheme: light;
+    --ink: 13 28 59;
+    --surface: 255 255 255;
+    --accent: 77 124 15;
+    --trend: 101 163 13;
+    --canvas-from: #f6faf7;
+    --canvas-via: #eef5f1;
+    --canvas-to: #e4ede8;
+    --glass-bg: rgb(255 255 255 / 0.7);
+    --glass-border: rgb(13 28 59 / 0.08);
+    --glass-shadow: 0 10px 30px -12px rgb(13 28 59 / 0.18);
+  }
+
+  /* Dark theme: deep emerald to pitch black with white glass. */
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+    --ink: 255 255 255;
+    --surface: 10 26 18;
+    --accent: 132 204 22;
+    --trend: 132 204 22;
+    --canvas-from: #0a1a12;
+    --canvas-via: #0d2218;
+    --canvas-to: #050c08;
+    --glass-bg: rgb(255 255 255 / 0.05);
+    --glass-border: rgb(255 255 255 / 0.1);
+    --glass-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply min-h-dvh font-sans text-ink antialiased;
+    background-color: var(--canvas-to);
+    background-image: linear-gradient(to bottom, var(--canvas-from), var(--canvas-via), var(--canvas-to));
+    background-attachment: fixed;
+  }
+
+  [data-theme='dark'] input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.5;
+  }
+}
+
+@layer components {
+  .glass {
+    background-color: var(--glass-bg);
+    border-color: var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+}
+
+/* Recharts focus outlines clash with the glass cards. */
+.recharts-wrapper *:focus {
+  outline: none;
+}
