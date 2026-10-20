@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -38,6 +39,9 @@ const app = isFirebaseConfigured ? initializeApp(config) : null;
 
 export const auth = app ? getAuth(app) : null;
 export const googleProvider = app ? new GoogleAuthProvider() : null;
+
+// Backend callables (functions/index.js). Region must match setGlobalOptions there.
+export const functions = app ? getFunctions(app, 'us-central1') : null;
 
 // Persistent cache keeps Firestore usable offline and syncs writes when connectivity returns.
 export const db = app

@@ -50,21 +50,28 @@ authenticator). It can also be set up, changed or turned off any time in **Setti
 
 Firestore runs with a persistent offline cache, so entries made offline sync when you reconnect.
 
-## Screenshot scanner (Gemini Vision)
+## Screenshot scanner (Claude, via the backend)
 
 Activity → **Scan screenshots & receipts** reads 1–50 bank/wallet screenshots or receipts at once and extracts the
 institution, amount, debit/credit, date and remaining balance. Everything lands in a review modal first: edit any field,
 untick duplicates (auto-detected), and choose whether to sync each account to the balance shown on its latest screenshot.
 
-- Put your key in `.env.local` (gitignored): `VITE_GEMINI_API_KEY=...` — get one at https://aistudio.google.com/apikey.
-  Optional: `VITE_GEMINI_MODEL` (default `gemini-3.8-flash`). Without a key, the scanner is shown as unavailable.
-- Images are downscaled on-device and sent to Gemini with `store: false` (not retained).
+Images are downscaled on-device and sent, 6 per request, to the `scanScreenshots` Cloud Function, which checks the user
+is signed in and asks Claude (`claude-opus-5-5`) to read them. The Anthropic key never ships in the website bundle.
 
-> **Security:** Vite inlines `VITE_*` variables into the published JavaScript, so anyone can read this key from your
-> GitHub Pages site. Before deploying, lock it down in Google Cloud Console → APIs & Services → Credentials → your key:
-> - **Application restrictions → Websites:** `https://<your-username>.github.io/*` (plus `http://localhost:5180/*` for dev)
-> - **API restrictions:** Generative Language API only
-> - Optionally set a low quota / budget alert. For a fully private key, proxy Gemini through a backend instead.
+## Backend (Firebase Cloud Functions)
+
+User data and login already run on Firebase (Firestore + Auth). The `functions/` folder adds server code for things
+that need a secret key. One-time setup:
+
+1. Upgrade the Firebase project to the **Blaze** plan (Firebase Console → ⚙ → Usage and billing). It has a free monthly
+   allowance; set a budget alert.
+2. Install the CLI and log in: `npm install -g firebase-tools` then `firebase login`.
+3. Store the Anthropic key (from https://console.anthropic.com/settings/keys) as a secret:
+   `firebase functions:secrets:set ANTHROPIC_API_KEY`
+4. Deploy: `cd functions && npm install && cd .. && firebase deploy --only functions`
+
+Logs: `firebase functions:log`. The project id is in `.firebaserc`.
 
 ## Bills & subscriptions
 
@@ -132,7 +139,7 @@ src/
                    DueReminderModal, CommitteeFormModal, StatusTag
     scanner/       BulkScreenshotScanner, TransactionPreviewModal
   context/         AuthContext, FinanceContext, ThemeContext, SettingsContext
-  services/        firebase.js, storageService.js, geminiVisionApi.js, billAggregatorApi.js
+  services/        firebase.js, storageService.js, screenshotScanApi.js, billAggregatorApi.js
   utils/           constants.js, formatters.js, analytics.js, accountIcons.js
 ```
 

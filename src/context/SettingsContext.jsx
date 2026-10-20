@@ -11,7 +11,7 @@ const DEFAULTS = { rates: DEFAULT_RATES };
 const load = () => {
   try {
     const { usdRate, rates, geminiApiKey, geminiModel, ...saved } = JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {};
-    // Older versions stored a single `usdRate` and a per-device Gemini key; the key now comes from the build env.
+    // Older versions stored a single `usdRate` and a per-device Gemini key; the scanner key now lives on the backend.
     const next = { ...DEFAULTS, ...saved, rates: { ...DEFAULT_RATES, ...(usdRate && { USD: usdRate }), ...rates } };
     if (geminiApiKey !== undefined || geminiModel !== undefined) localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     return next;

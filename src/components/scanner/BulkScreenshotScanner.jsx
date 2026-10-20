@@ -4,10 +4,10 @@ import { Camera, ImagePlus, ScanLine, ShieldCheck, X } from 'lucide-react';
 import Button from '../common/Button';
 import Card from '../common/Card';
 import TransactionPreviewModal from './TransactionPreviewModal';
-import { extractTransactions, isGeminiConfigured, MAX_IMAGES, prepareImage } from '../../services/geminiVisionApi';
+import { extractTransactions, isScannerConfigured, MAX_IMAGES, prepareImage } from '../../services/screenshotScanApi';
 
 /**
- * Pick 1–50 banking screenshots / receipts (gallery or camera), parse them with Gemini Vision,
+ * Pick 1–50 banking screenshots / receipts (gallery or camera), read them with Claude via the backend,
  * then hand the results to the batch review modal.
  */
 export default function BulkScreenshotScanner() {
@@ -78,10 +78,10 @@ export default function BulkScreenshotScanner() {
   return (
     <Card title="Scan screenshots & receipts" subtitle={`Bank / wallet alerts, receipts — up to ${MAX_IMAGES} at once`}>
       <div className="grid grid-cols-2 gap-2">
-        <Button variant="secondary" icon={ImagePlus} onClick={pick(galleryRef)} disabled={busy || !isGeminiConfigured}>
+        <Button variant="secondary" icon={ImagePlus} onClick={pick(galleryRef)} disabled={busy || !isScannerConfigured}>
           Gallery
         </Button>
-        <Button variant="secondary" icon={Camera} onClick={pick(cameraRef)} disabled={busy || !isGeminiConfigured}>
+        <Button variant="secondary" icon={Camera} onClick={pick(cameraRef)} disabled={busy || !isScannerConfigured}>
           Camera
         </Button>
       </div>
@@ -151,7 +151,7 @@ export default function BulkScreenshotScanner() {
 
       {error && <p className="mt-3 text-sm text-red-600 dark:text-red-300">{error}</p>}
 
-      {isGeminiConfigured ? (
+      {isScannerConfigured ? (
         <div className="mt-4">
           <Button size="lg" icon={ScanLine} className="w-full" disabled={!files.length} loading={busy} onClick={scan}>
             Scan {files.length || ''} image{files.length === 1 ? '' : 's'}
@@ -159,12 +159,12 @@ export default function BulkScreenshotScanner() {
         </div>
       ) : (
         <p className="mt-4 rounded-2xl bg-ink/5 px-4 py-3 text-xs text-ink/55">
-          Scanning is unavailable in this build — set <code>VITE_GEMINI_API_KEY</code> in <code>.env.local</code> and rebuild.
+          Scanning is unavailable in this build — it needs the Firebase backend (set the <code>VITE_FIREBASE_*</code> values and rebuild).
         </p>
       )}
       <p className="mt-3 flex items-start gap-1.5 text-[11px] text-ink/40">
         <ShieldCheck size={13} className="mt-px shrink-0" />
-        Images are downscaled on your device and sent only to Google Gemini for reading (not stored). Nothing is saved until you
+        Images are downscaled on your device and sent through WalletZen's server to Claude (Anthropic) for reading — not stored. Nothing is saved until you
         confirm.
       </p>
 
