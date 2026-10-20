@@ -111,8 +111,8 @@ export default function SubscriptionsPlanner() {
           <PlugZap size={16} className={BILL_API_MODE === 'live' ? 'text-accent' : 'text-sky-600 dark:text-sky-300'} />
           <p className="flex-1">
             {BILL_API_MODE === 'live'
-              ? 'Live 1Bill / Kuickpay: tap Add → Utility bill → Fetch Latest Bill. Pending bills refresh every 12 hours.'
-              : 'Demo aggregator: fetched bills are sample data (tagged Demo). Connect a live 1Bill / Kuickpay backend for real amounts — see README.'}
+              ? 'Live electricity bills (LESCO, FESCO, IESCO…) from the official PITC web bill: tap Add → Utility bill → Fetch Latest Bill. Pending bills refresh every 12 hours. Gas, PTCL and internet are still demo.'
+              : 'Demo mode: fetched bills are sample data (tagged Demo). Connect the WalletZen API for real electricity bills — see README.'}
           </p>
           {bills.some((b) => b.kind === 'utility' && b.status === 'pending') && (
             <Button size="sm" variant="secondary" icon={RefreshCw} loading={syncing} onClick={checkNow}>

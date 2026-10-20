@@ -4,10 +4,12 @@ import Button from '../common/Button';
 import IconCircle from '../common/IconCircle';
 import SegmentedControl from '../common/SegmentedControl';
 import { Field, Input, Select } from '../common/FormField';
+import BillHistory from './BillHistory';
 import MeterOwnerCard from './MeterOwnerCard';
 import StatusTag from './StatusTag';
+import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
-import { BILL_API_MODE, splitReference, validateIdentifier } from '../../services/billAggregatorApi';
+import { isLiveProvider, splitReference, validateIdentifier } from '../../services/billAggregatorApi';
 import { billStatus } from '../../utils/analytics';
 import { AREA_CODES, UTILITY_PROVIDERS } from '../../utils/constants';
 import { formatCurrency, formatDate, formatDue, todayISO } from '../../utils/formatters';
@@ -103,10 +105,19 @@ function FetchedBill({ outcome, meta, savedBill, wallet, onPay, paying, onDone }
       <MeterOwnerCard bill={savedBill} owner={result.owner} reference={result.identifier} />
 
       {alreadyPaid ? (
-        <p className="flex items-center gap-2 text-sm text-ink/70">
-          <CheckCircle2 size={16} className="text-accent" />
-          No unpaid bill — the {monthLabel(result.billingMonth)} bill is already paid.
-        </p>
+        <div className="space-y-1">
+          <p className="flex items-center gap-2 text-sm text-ink/70">
+            <CheckCircle2 size={16} className="shrink-0 text-accent" />
+            No unpaid bill — the {monthLabel(result.billingMonth)} bill is already paid.
+          </p>
+          {result.source === 'live' && (
+            <p className="pl-6 text-xs text-ink/55">
+              Bill {formatCurrency(result.amount)} · due {formatDate(result.dueDate)}
+              {result.paidAmount != null && ` · paid ${formatCurrency(result.paidAmount)}`}
+              {result.paidOn && ` on ${formatDate(result.paidOn)}`}
+            </p>
+          )}
+        </div>
       ) : (
         <>
           <div className="flex items-end justify-between gap-3">
@@ -118,6 +129,14 @@ function FetchedBill({ outcome, meta, savedBill, wallet, onPay, paying, onDone }
               {!isDemo && result.lateAmount && savedBill?.source !== 'manual' && (
                 <p className="text-[11px] text-ink/45">After due date: {formatCurrency(result.lateAmount)}</p>
               )}
+              {result.source === 'live' && result.currentBill != null && (
+                <p className="text-[11px] text-ink/45">
+                  This month {formatCurrency(result.currentBill)}
+                  {result.arrears > 0 && ` + arrears ${formatCurrency(result.arrears)}`}
+                  {result.units != null && ` · ${result.units} units`}
+                </p>
+              )}
+              {result.paidAmount > 0 && <p className="text-[11px] text-amber-700 dark:text-amber-300">Partly paid: {formatCurrency(result.paidAmount)}</p>}
             </div>
             <div className="text-right">
               <StatusTag status={billStatus(dueDate)} />
@@ -130,7 +149,7 @@ function FetchedBill({ outcome, meta, savedBill, wallet, onPay, paying, onDone }
             <div className="space-y-2">
               <p className="text-[11px] text-sky-700 dark:text-sky-300">
                 This is sample data from the demo aggregator, <b>not your real bill</b>. For the exact figures, open the official bill and enter
-                them below. Automatic real amounts need a live 1Bill / Kuickpay backend.
+                them below. Real amounts are fetched automatically for electricity bills once the WalletZen API is connected.
               </p>
               <OfficialBillLink meta={meta} reference={splitReference(result.identifier).digits} areaCode={splitReference(result.identifier).areaCode} />
               {savedBill && <ExactAmountForm bill={savedBill} />}
@@ -143,6 +162,8 @@ function FetchedBill({ outcome, meta, savedBill, wallet, onPay, paying, onDone }
           )}
         </>
       )}
+
+      <BillHistory history={result.history} />
 
       {/* Stacked on phones so the long wallet name never overflows; side by side from sm up. */}
       <div className="flex flex-col-reverse gap-2 sm:flex-row">
@@ -162,6 +183,7 @@ function FetchedBill({ outcome, meta, savedBill, wallet, onPay, paying, onDone }
 /** Utility bill form: biller + Reference no. (with U/R) or Consumer ID, "Fetch Latest Bill", and a manual path. */
 export default function UtilityBillFetcher({ bill, onClose }) {
   const { accounts, accountsById, bills, fetchLatestUtilityBill, markBillPaid, saveBill, deleteBill } = useFinance();
+  const { requireLogin } = useAuth();
   const [form, setForm] = useState(() => {
     const provider = bill?.provider ?? 'LESCO';
     const ids = UTILITY_PROVIDERS[provider].ids;
@@ -208,6 +230,8 @@ export default function UtilityBillFetcher({ bill, onClose }) {
     setError(null);
     setOutcome(null);
     if (!form.accountId) return setError('Choose the wallet you will pay from.');
+    // Live bills come from the WalletZen API, which only answers signed-in users.
+    if (isLiveProvider(form.provider) && !requireLogin('bills')) return;
     setFetching(true);
     try {
       setOutcome(
@@ -364,7 +388,7 @@ export default function UtilityBillFetcher({ bill, onClose }) {
       {fetching && (
         <div className="flex items-center gap-3 rounded-3xl border border-ink/10 bg-ink/5 p-4 text-sm text-ink/70" role="status">
           <Loader2 size={18} className="animate-spin text-accent" />
-          Fetching the latest {meta.label} bill{BILL_API_MODE === 'demo' ? ' (demo aggregator)' : ' from 1Bill / Kuickpay'}…
+          Fetching the latest {meta.label} bill{isLiveProvider(form.provider) ? ' from the official PITC web bill' : ' (demo)'}…
         </div>
       )}
 

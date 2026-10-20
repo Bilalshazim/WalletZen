@@ -79,37 +79,27 @@ Planner → **Bills & subscriptions** manages digital subscriptions (PKR, USD or
 bills. **Pay & Sync Balance** logs the expense, debits the linked wallet and schedules the next cycle in one atomic write.
 USD and EUR amounts convert to PKR at the rates set in Settings (gear icon). Items due within 3 days pop up once a day on open.
 
-### Utility auto-fetch (1Bill / Kuickpay)
+### Utility auto-fetch (live electricity bills)
 
-Planner → Add → **Utility bill**: pick the biller, choose **Reference no.** or **Consumer ID** (where the biller supports
-both), enter it and tap **Fetch Latest Bill**. The unpaid amount, due date, status (Unpaid / Due soon / Overdue), billed
-month and company are shown, the bill is added to *Upcoming* on the dashboard, and **Pay & Deduct from Wallet** pays it.
-Re-fetching updates the same bill; a month you've already paid is reported as "already paid". You can also enter the
-amount manually.
+Planner → Add → **Utility bill**: pick the biller, enter the **Reference no.** (14 digits + U/R) or **Customer ID**
+(11 digits) and tap **Fetch Latest Bill**. For electricity companies (LESCO, FESCO, IESCO, GEPCO, MEPCO, PESCO, HESCO,
+QESCO, SEPCO, TESCO) the app shows the real bill from the official PITC web bill: amount payable, due date, late amount,
+paid / unpaid (with amount and date paid), units, the meter owner's name, father/husband name, address, meter no.,
+tariff and sub-division, and the previous 12 months. Unpaid bills are added to *Upcoming*, and **Pay & Deduct from
+Wallet** pays them. Gas (SNGPL), PTCL and internet still use demo figures (tagged **Demo**) or a manual amount.
 
-Electricity reference numbers (LESCO, FESCO, IESCO, GEPCO, MEPCO, PESCO, HESCO, QESCO, SEPCO, TESCO) are 14 digits plus
-a **U (Urban) / R (Rural)** code — pick it with the U/R toggle or type it as a suffix (`…406U`). **Open official bill**
-copies the reference and opens the company's PITC bill page (CAPTCHA-protected, so it can't be fetched automatically).
+Pending utility bills are re-polled on app open (at most every 12 h per bill) and via **Refresh** on the Utilities tab.
 
-**Demo vs live.** Without `VITE_BILL_API_URL` the app uses a built-in **demo aggregator** — deterministic sample bills,
-tagged **Demo** everywhere, *not your real bill*. Demo bills can't be paid until you enter the exact amount and due
-date from your real bill (this removes the Demo tag).
+**The WalletZen API (Cloudflare Worker, free).** `worker/` is a small backend: `POST /bills/inquiry` checks the user's
+Firebase sign-in, submits the PITC search form, reads the bill page and returns JSON (contract in
+`src/services/billAggregatorApi.js`). One-time setup:
 
-**Meter owner.** Each bill shows the owner's name, father/husband name, address, meter no., tariff and sub-division when
-the live service returns them (`owner` in the response below). In demo/manual mode nothing is invented: add the details
-once from your printed bill and they stay with that reference for every later month. 1Bill and Kuickpay only offer bill inquiry to onboarded merchants,
-server-to-server, so for real data deploy a small backend holding those credentials and set `VITE_BILL_API_URL`:
+1. Create a free account at https://dash.cloudflare.com/sign-up (no card needed).
+2. `cd worker && npm install && npx wrangler login && npx wrangler deploy`
+3. Copy the printed `https://walletzen-api.<you>.workers.dev` URL into `VITE_BILL_API_URL` (`.env` for local dev, and
+   the deploy workflow for GitHub Pages), then rebuild.
 
-```
-POST {VITE_BILL_API_URL}/bills/inquiry          Authorization: Bearer <Firebase ID token>
-{ "provider": "LESCO", "idType": "reference" | "consumer", "identifier": "04111234567890" }
-→ 200 { "amount": 12450, "dueDate": "2026-11-12", "status": "unpaid" | "paid", "billingMonth": "2026-10",
-        "company": "Lahore Electric Supply Co.", "consumerName": "M. Ali", "lateAmount": 13100 }
-→ 4xx { "error": "Consumer number does not exist" }
-```
-
-The backend must also allow CORS from your GitHub Pages origin. Pending utility bills are re-polled on app open (at most
-every 12 h per bill) and via **Refresh** on the Utilities tab.
+Allowed site origins are set in `worker/wrangler.toml` (`ALLOWED_ORIGINS`). Logs: `npx wrangler tail`.
 
 ## Bank & wallet icons
 

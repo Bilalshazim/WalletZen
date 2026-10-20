@@ -97,16 +97,16 @@ export const BILLING_CYCLES = {
   once: { label: 'One-time', months: 0 },
 };
 
-/** Utility billers supported by the bill aggregator (1Bill / Kuickpay) backend. */
+/** Utility billers. Electricity companies are fetched live via the API worker; the rest are demo for now. */
 // Identifier formats printed on Pakistani utility bills. `pattern` validates the cleaned value.
 // Electricity (DISCO) reference numbers are 14 digits followed by an area code: U = Urban, R = Rural.
 export const AREA_CODES = { U: 'Urban', R: 'Rural' };
 const DISCO_IDS = {
   reference: { label: 'Reference no.', hint: '14 digits + U/R', pattern: /^\d{14}[UR]$/, areaCode: true },
-  consumer: { label: 'Consumer ID', hint: '10 digits', pattern: /^\d{10}$/ },
+  consumer: { label: 'Customer ID', hint: '11 digits', pattern: /^\d{11}$/ },
 };
 
-/** Official PITC bill page for each electricity company (lookup by reference no. + U/R, CAPTCHA-protected). */
+/** Official PITC web bill for each electricity company; the API worker (worker/) reads live bills from it. */
 const pitc = (code) => `https://bill.pitc.com.pk/${code}bill`;
 const disco = (label, company, slug) => ({
   label,

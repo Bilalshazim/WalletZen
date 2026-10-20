@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Cloud, CloudOff, LogIn, Mail, MailCheck, MonitorSmartphone, ScanLine, ShieldCheck, Smartphone } from 'lucide-react';
+import { ArrowLeft, Cloud, CloudOff, LogIn, Mail, MailCheck, MonitorSmartphone, ScanLine, ShieldCheck, Smartphone, Zap } from 'lucide-react';
 import BrandLogo from './BrandLogo';
 import Button from './Button';
 import Modal from './Modal';
@@ -18,6 +18,7 @@ const METHODS = [
 
 const REASONS = {
   scan: { icon: ScanLine, text: 'Screenshot scanning saves receipts to your cloud account.' },
+  bills: { icon: Zap, text: 'Sign in to fetch your real bill from the official electricity company website.' },
 };
 
 /** Counts down from `seconds` each time `startedAt` changes (0 = idle); returns the seconds left. */

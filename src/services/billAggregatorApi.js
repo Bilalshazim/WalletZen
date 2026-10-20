@@ -1,23 +1,22 @@
 /**
- * Utility bill inquiry (LESCO, FESCO, SNGPL, PTCL, internet) via a 1Bill / Kuickpay aggregator.
+ * Utility bill inquiry (LESCO, FESCO and the other electricity companies; SNGPL, PTCL, internet).
  *
- * LIVE mode — when VITE_BILL_API_URL is set:
- *   1Bill (1LINK) and Kuickpay only expose bill inquiry to onboarded merchants, server-to-server, with credentials
- *   that must never ship in a browser bundle. WalletZen calls YOUR backend, which holds those credentials:
+ * LIVE mode — when VITE_BILL_API_URL is set, electricity bills come from the WalletZen API worker (worker/), which
+ * reads the official PITC web bill:
  *
  *   POST {VITE_BILL_API_URL}/bills/inquiry
- *   Authorization: Bearer <Firebase ID token>          (when signed in)
+ *   Authorization: Bearer <Firebase ID token>          (required)
  *   body:     { "provider": "LESCO", "idType": "reference" | "consumer", "identifier": "04111234567890",
  *               "areaCode": "U" | "R" }                    (areaCode only for electricity reference numbers)
- *   200 body: { "amount": 12450, "dueDate": "2026-11-12", "status": "unpaid" | "paid", "billingMonth": "2026-10",
- *               "company": "Lahore Electric Supply Co.", "lateAmount": 13100,
- *               "owner": { "name": "Muhammad Ali", "fatherName": "Abdul Rehman", "address": "House 12, Street 4, Gulberg III, Lahore",
- *                          "meterNumber": "L123456", "tariff": "A-1(a) Residential", "subDivision": "Gulberg" } }
- *             (`owner` fields are optional; a top-level "consumerName" is accepted as owner.name)
- *   4xx body: { "error": "Consumer number does not exist" }
+ *   200 body: { "amount": 7760, "dueDate": "2026-10-09", "status": "unpaid" | "paid", "billingMonth": "2026-09",
+ *               "company": "Lahore Electric Supply Co.", "lateAmount": 8061, "currentBill": 7194, "arrears": 0,
+ *               "units": 169, "issueDate": "2026-09-27", "paidAmount": 7760, "paidOn": "2026-10-09",
+ *               "owner": { "name", "fatherName", "address", "meterNumber", "tariff", "subDivision" },
+ *               "history": [{ "month": "2026-08", "units": 234, "bill": 10459, "payment": 10459 }, …] }
+ *   4xx body: { "error": "No bill found for this reference number." }
  *
- * DEMO mode — no URL configured: a deterministic mock (same identifier → same bill) so the flow can be tried
- * end-to-end. Every demo bill is tagged `source: 'demo'` and labelled "Demo" in the UI; it is not a real bill.
+ * DEMO mode — no URL configured, or a biller the worker can't read yet (gas, PTCL, internet): a deterministic mock
+ * (same identifier → same bill). Every demo bill is tagged `source: 'demo'` and labelled "Demo" in the UI.
  */
 import { auth } from './firebase';
 import { UTILITY_PROVIDERS } from '../utils/constants';
@@ -26,6 +25,12 @@ import { toISODate } from '../utils/formatters';
 const BASE_URL = import.meta.env.VITE_BILL_API_URL?.replace(/\/$/, '');
 
 export const BILL_API_MODE = BASE_URL ? 'live' : 'demo';
+
+/** True when this biller's bills are read live (electricity companies on the PITC web bill). */
+export const isLiveProvider = (provider) => BILL_API_MODE === 'live' && Boolean(UTILITY_PROVIDERS[provider]?.officialBillUrl);
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const toNumber = (value) => (value != null && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null);
 
 // Don't re-poll a biller more often than this.
 export const SYNC_INTERVAL_MS = 12 * 60 * 60 * 1000;
@@ -51,7 +56,8 @@ export function splitReference(identifier) {
 async function fetchLive({ provider, idType, identifier }) {
   const headers = { 'Content-Type': 'application/json' };
   const token = await auth?.currentUser?.getIdToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  if (!token) throw new Error('Sign in to fetch real bills.');
+  headers.Authorization = `Bearer ${token}`;
 
   const response = await fetch(`${BASE_URL}/bills/inquiry`, {
     method: 'POST',
@@ -67,7 +73,7 @@ async function fetchLive({ provider, idType, identifier }) {
   if (!response.ok) throw new Error(body.error || `Bill inquiry failed (${response.status})`);
 
   const amount = Number(body.amount);
-  if (!Number.isFinite(amount) || !/^\d{4}-\d{2}-\d{2}$/.test(body.dueDate ?? '')) {
+  if (!Number.isFinite(amount) || !ISO_DATE.test(body.dueDate ?? '')) {
     throw new Error('Bill service returned an unexpected response.');
   }
   return {
@@ -77,7 +83,14 @@ async function fetchLive({ provider, idType, identifier }) {
     billingMonth: body.billingMonth ?? body.dueDate.slice(0, 7),
     company: body.company ?? UTILITY_PROVIDERS[provider].company,
     owner: parseOwner(body),
-    lateAmount: Number.isFinite(Number(body.lateAmount)) ? Number(body.lateAmount) : null,
+    lateAmount: toNumber(body.lateAmount),
+    currentBill: toNumber(body.currentBill),
+    arrears: toNumber(body.arrears),
+    units: toNumber(body.units),
+    issueDate: ISO_DATE.test(body.issueDate ?? '') ? body.issueDate : null,
+    paidAmount: toNumber(body.paidAmount),
+    paidOn: ISO_DATE.test(body.paidOn ?? '') ? body.paidOn : null,
+    history: parseHistory(body.history),
     source: 'live',
   };
 }
@@ -97,6 +110,15 @@ export function cleanOwner(owner) {
     .map((key) => [key, typeof owner?.[key] === 'string' ? owner[key].trim().slice(0, 160) : ''])
     .filter(([, value]) => value);
   return entries.length ? Object.fromEntries(entries) : null;
+}
+
+/** Previous months from the bill, oldest first: [{ month: 'YYYY-MM', units, bill, payment }]. */
+function parseHistory(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter((row) => /^\d{4}-\d{2}$/.test(row?.month ?? ''))
+    .slice(-12)
+    .map((row) => ({ month: row.month, units: toNumber(row.units), bill: toNumber(row.bill), payment: toNumber(row.payment) }));
 }
 
 /** Meter-owner details as printed on the bill (live service only). */
@@ -137,6 +159,6 @@ async function fetchDemo({ provider, idType, identifier }) {
 /** Fetches the current bill for a biller + identifier from the live aggregator or the demo mock. */
 export async function fetchUtilityBill({ provider, idType = 'reference', identifier, areaCode }) {
   const clean = validateIdentifier(provider, idType, identifier, areaCode);
-  const result = await (BILL_API_MODE === 'live' ? fetchLive : fetchDemo)({ provider, idType, identifier: clean });
+  const result = await (isLiveProvider(provider) ? fetchLive : fetchDemo)({ provider, idType, identifier: clean });
   return { ...result, identifier: clean };
 }

@@ -35,6 +35,14 @@ const fetchedBillFields = (result) => ({
   // Only overwrite saved owner details when the service actually returned some.
   ...(result.owner && { owner: result.owner, ownerSource: 'live' }),
   lateAmount: result.lateAmount,
+  // Extra detail only the live (PITC) service returns.
+  ...(result.source === 'live' && {
+    units: result.units,
+    issueDate: result.issueDate,
+    paidAmount: result.paidAmount,
+    paidOn: result.paidOn,
+    history: result.history,
+  }),
   source: result.source,
   lastSyncedAt: Date.now(),
   syncError: null,
