@@ -4,6 +4,8 @@
  * follow the redirect to the bill page, then read the values out of the HTML.
  */
 
+import { ApiError } from './errors.js';
+
 export const DISCO_SLUGS = {
   LESCO: 'lesco', FESCO: 'fesco', IESCO: 'iesco', GEPCO: 'gepco', MEPCO: 'mepco',
   PESCO: 'pesco', HESCO: 'hesco', QESCO: 'qesco', SEPCO: 'sepco', TESCO: 'tesco',
@@ -13,13 +15,6 @@ const BASE = 'https://bill.pitc.com.pk';
 const UA = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36';
 const TIMEOUT_MS = 20_000;
 const MONTHS = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
-
-export class BillError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
-}
 
 // ---------- HTTP session (cookie jar + ASP.NET form fields) ----------
 
@@ -46,7 +41,7 @@ function createSession(slug) {
       },
     });
     keep(response);
-    if (response.status >= 500) throw new BillError(502, 'The PITC bill website is not responding. Try again later.');
+    if (response.status >= 500) throw new ApiError(502, 'The PITC bill website is not responding. Try again later.');
     return response;
   };
   const postForm = (formHtml, fields) =>
@@ -69,17 +64,17 @@ function hiddenFields(html) {
 
 function assertNoCaptcha(html) {
   if (/<img[^>]*captcha|name="[^"]*captcha[^"]*"/i.test(html)) {
-    throw new BillError(503, 'The bill website is asking for a CAPTCHA right now. Open the official bill page or try again later.');
+    throw new ApiError(503, 'The bill website is asking for a CAPTCHA right now. Open the official bill page or try again later.');
   }
 }
 
 /**
  * Looks up the current bill. `idType` is 'reference' (14 digits + `areaCode` U/R) or 'consumer' (customer ID).
- * Resolves to the parsed bill; throws BillError for invalid numbers or upstream problems.
+ * Resolves to the parsed bill; throws ApiError for invalid numbers or upstream problems.
  */
 export async function fetchPitcBill({ provider, idType, identifier, areaCode = 'U' }) {
   const slug = DISCO_SLUGS[provider];
-  if (!slug) throw new BillError(400, `${provider} bills are not supported yet.`);
+  if (!slug) throw new ApiError(400, `${provider} bills are not supported yet.`);
   const session = createSession(slug);
 
   let page = await (await session.request(session.url)).text();
@@ -99,13 +94,13 @@ export async function fetchPitcBill({ provider, idType, identifier, areaCode = '
   if (!location || !/\/general\?/.test(location)) {
     const body = await response.text();
     assertNoCaptcha(body);
-    throw new BillError(404, idType === 'consumer' ? 'No bill found for this customer ID.' : 'No bill found for this reference number. Check the digits and U/R.');
+    throw new ApiError(404, idType === 'consumer' ? 'No bill found for this customer ID.' : 'No bill found for this reference number. Check the digits and U/R.');
   }
 
   const billResponse = await session.request(location);
   const billHtml = billResponse.status === 200 ? await billResponse.text() : '';
   // Unknown numbers bounce back to the search form instead of showing a bill.
-  if (!billHtml.includes('val-space--ref-no')) throw new BillError(404, 'No bill found for this number. Check the digits and U/R.');
+  if (!billHtml.includes('val-space--ref-no')) throw new ApiError(404, 'No bill found for this number. Check the digits and U/R.');
   const bill = parseBill(billHtml);
   return { ...bill, company: companyName(provider) };
 }
@@ -174,7 +169,7 @@ export function parseBill(html) {
   const billingMonth = monthKey(match(html, /<span class="right-panel-en">BILL MONTH<\/span>[\s\S]*?<div class="right-main-val">([^<]*)<\/div>/));
   const dueDate = isoDate(match(html, /<div class="right-main-val right-main-val--due">([^<]*)<\/div>/));
   if (!/^\d{14}$/.test(reference) || !billingMonth || !dueDate) {
-    throw new BillError(502, 'The bill page could not be read (the website layout may have changed).');
+    throw new ApiError(502, 'The bill page could not be read (the website layout may have changed).');
   }
 
   const payable = number(match(html, /<div class="payable-card-amount">([\s\S]*?)<\/div>/)) ?? charge(html, 'Grand Total');

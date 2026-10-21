@@ -1,23 +1,21 @@
 /**
  * Screenshot scanner: extracts transactions from banking/wallet screenshots and receipts.
  *
- * Images are downscaled on-device, then sent in small batches to the `scanScreenshots` Cloud Function
- * (functions/index.js), which holds the Anthropic key and asks Claude to read them. No AI key ships in this bundle.
+ * Images are downscaled on-device, then sent in small batches to the WalletZen API worker (`POST /scan`, see
+ * worker/src/scan.js), where a Cloudflare Workers AI vision model reads them. No AI key ships in this bundle.
  */
-import { httpsCallable } from 'firebase/functions';
-import { functions, isFirebaseConfigured } from './firebase';
+import { API_URL, apiPost } from './apiClient';
+import { isFirebaseConfigured } from './firebase';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../utils/constants';
 
-/** Scanning runs on the backend, so it needs a Firebase build (and a signed-in user). */
-export const isScannerConfigured = isFirebaseConfigured;
+/** Scanning runs on the worker, which only answers signed-in users. */
+export const isScannerConfigured = Boolean(API_URL) && isFirebaseConfigured;
 export const MAX_IMAGES = 50;
 
-const IMAGES_PER_REQUEST = 6; // must match MAX_IMAGES_PER_CALL in functions/index.js
+const IMAGES_PER_REQUEST = 6; // must match MAX_IMAGES_PER_CALL in worker/src/scan.js
 const MAX_DIMENSION = 1600; // px — plenty for reading screenshot text
 const JPEG_QUALITY = 0.82;
 const CATEGORIES = [...Object.keys(EXPENSE_CATEGORIES), ...Object.keys(INCOME_CATEGORIES)];
-
-const scanScreenshots = functions ? httpsCallable(functions, 'scanScreenshots', { timeout: 300_000 }) : null;
 
 /** Downscales an image file to a JPEG data payload suitable for inline upload. */
 export async function prepareImage(file) {
@@ -32,16 +30,8 @@ export async function prepareImage(file) {
   return { data: dataUrl.split(',')[1], mimeType: 'image/jpeg', previewUrl: dataUrl };
 }
 
-// Errors that will fail every batch — stop instead of burning through them.
-const FATAL_CODES = new Set(['functions/unauthenticated', 'functions/failed-precondition', 'functions/resource-exhausted', 'functions/not-found']);
-
-function friendlyError(error) {
-  if (error?.code === 'functions/not-found') return 'The scanner backend is not deployed yet (scanScreenshots function missing).';
-  if (error?.code === 'functions/unauthenticated') return 'Sign in to scan screenshots.';
-  if (error?.code === 'functions/deadline-exceeded') return 'The scanner took too long. Try fewer images.';
-  if (/Failed to fetch|NetworkError|network/i.test(String(error?.message))) return 'Network error — are you online?';
-  return error?.message || 'Scanning failed.';
-}
+// Failures that will repeat for every batch (signed out, daily AI allowance used up) — stop instead of retrying.
+const isFatal = (error) => error?.status === 401 || error?.status === 0 || /allowance/i.test(error?.message ?? '');
 
 /**
  * Scans images in batches and returns a flat list of extracted transactions,
@@ -49,7 +39,7 @@ function friendlyError(error) {
  * `onProgress(done, total)` reports images processed so far.
  */
 export async function extractTransactions(images, { onProgress, signal } = {}) {
-  if (!scanScreenshots) throw new Error('Screenshot scanning needs the Firebase backend, which is not configured in this build.');
+  if (!isScannerConfigured) throw new Error('Screenshot scanning is not configured in this build.');
   const results = [];
   const failures = [];
 
@@ -57,10 +47,11 @@ export async function extractTransactions(images, { onProgress, signal } = {}) {
     if (signal?.aborted) break;
     const batch = images.slice(start, start + IMAGES_PER_REQUEST);
     try {
-      const { data } = await scanScreenshots({
-        images: batch.map(({ data: b64, mimeType }) => ({ data: b64, mimeType })),
-        categories: CATEGORIES,
-      });
+      const data = await apiPost(
+        '/scan',
+        { images: batch.map(({ data: b64, mimeType }) => ({ data: b64, mimeType })), categories: CATEGORIES },
+        { signal },
+      );
       for (const tx of data.transactions ?? []) {
         const local = Number(tx.imageIndex);
         if (!(local >= 0 && local < batch.length) || !(Number(tx.amount) > 0)) continue;
@@ -73,8 +64,9 @@ export async function extractTransactions(images, { onProgress, signal } = {}) {
         });
       }
     } catch (error) {
-      if (FATAL_CODES.has(error?.code)) throw new Error(friendlyError(error));
-      failures.push({ from: start, to: start + batch.length - 1, reason: friendlyError(error) });
+      if (error?.name === 'AbortError') break;
+      if (isFatal(error)) throw error;
+      failures.push({ from: start, to: start + batch.length - 1, reason: error.message });
     }
     onProgress?.(Math.min(start + batch.length, images.length), images.length);
   }

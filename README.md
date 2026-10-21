@@ -50,28 +50,29 @@ authenticator). It can also be set up, changed or turned off any time in **Setti
 
 Firestore runs with a persistent offline cache, so entries made offline sync when you reconnect.
 
-## Screenshot scanner (Claude, via the backend)
+## Screenshot scanner (Cloudflare Workers AI)
 
 Activity → **Scan screenshots & receipts** reads 1–50 bank/wallet screenshots or receipts at once and extracts the
 institution, amount, debit/credit, date and remaining balance. Everything lands in a review modal first: edit any field,
 untick duplicates (auto-detected), and choose whether to sync each account to the balance shown on its latest screenshot.
 
-Images are downscaled on-device and sent, 6 per request, to the `scanScreenshots` Cloud Function, which checks the user
-is signed in and asks Claude (`claude-opus-5-5`) to read them. The Anthropic key never ships in the website bundle.
+Images are downscaled on-device and sent, 6 per request, to the API worker's `POST /scan`, which checks the user is
+signed in and has a Workers AI vision model (`@cf/meta/llama-4-scout-17b-16e-instruct`, set in `worker/src/scan.js`)
+read each image. It runs on Cloudflare's free daily allowance — no AI key or card needed.
 
-## Backend (Firebase Cloud Functions)
+## Backend (Cloudflare Worker, free)
 
-User data and login already run on Firebase (Firestore + Auth). The `functions/` folder adds server code for things
-that need a secret key. One-time setup:
+User data and login run on Firebase (Firestore + Auth, free Spark plan). Server-side features live in `worker/`, a
+Cloudflare Worker that only answers signed-in users (it verifies their Firebase ID token):
 
-1. Upgrade the Firebase project to the **Blaze** plan (Firebase Console → ⚙ → Usage and billing). It has a free monthly
-   allowance; set a budget alert.
-2. Install the CLI and log in: `npm install -g firebase-tools` then `firebase login`.
-3. Store the Anthropic key (from https://console.anthropic.com/settings/keys) as a secret:
-   `firebase functions:secrets:set ANTHROPIC_API_KEY`
-4. Deploy: `cd functions && npm install && cd .. && firebase deploy --only functions`
+- `POST /bills/inquiry` — live electricity bills from the official PITC web bill
+- `POST /scan` — screenshot reading with Workers AI
 
-Logs: `firebase functions:log`. The project id is in `.firebaserc`.
+One-time setup: create a free account at https://dash.cloudflare.com/sign-up, then from the `worker/` folder run
+`npx wrangler login` and `npx wrangler deploy` (on Windows PowerShell use `npx.cmd`). Put the printed
+`https://walletzen-api.<you>.workers.dev` URL in `VITE_API_URL` (`.env` for local dev, and
+`.github/workflows/deploy.yml` for GitHub Pages). Allowed site origins are in `worker/wrangler.toml`
+(`ALLOWED_ORIGINS`); logs: `npx wrangler tail`.
 
 ## Money model: realized, projected, savings & net worth
 
@@ -110,16 +111,7 @@ Wallet** pays them. Gas (SNGPL), PTCL and internet still use demo figures (tagge
 
 Pending utility bills are re-polled on app open (at most every 12 h per bill) and via **Refresh** on the Utilities tab.
 
-**The WalletZen API (Cloudflare Worker, free).** `worker/` is a small backend: `POST /bills/inquiry` checks the user's
-Firebase sign-in, submits the PITC search form, reads the bill page and returns JSON (contract in
-`src/services/billAggregatorApi.js`). One-time setup:
-
-1. Create a free account at https://dash.cloudflare.com/sign-up (no card needed).
-2. `cd worker && npm install && npx wrangler login && npx wrangler deploy`
-3. Copy the printed `https://walletzen-api.<you>.workers.dev` URL into `VITE_BILL_API_URL` (`.env` for local dev, and
-   the deploy workflow for GitHub Pages), then rebuild.
-
-Allowed site origins are set in `worker/wrangler.toml` (`ALLOWED_ORIGINS`). Logs: `npx wrangler tail`.
+Live bills come from the API worker's `POST /bills/inquiry` — see **Backend** above for setup.
 
 ## Bank & wallet icons
 

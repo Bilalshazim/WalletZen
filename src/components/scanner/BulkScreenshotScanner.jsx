@@ -7,7 +7,7 @@ import TransactionPreviewModal from './TransactionPreviewModal';
 import { extractTransactions, isScannerConfigured, MAX_IMAGES, prepareImage } from '../../services/screenshotScanApi';
 
 /**
- * Pick 1–50 banking screenshots / receipts (gallery or camera), read them with Claude via the backend,
+ * Pick 1–50 banking screenshots / receipts (gallery or camera), read them with the WalletZen API (Cloudflare Workers AI),
  * then hand the results to the batch review modal.
  */
 export default function BulkScreenshotScanner() {
@@ -159,12 +159,12 @@ export default function BulkScreenshotScanner() {
         </div>
       ) : (
         <p className="mt-4 rounded-2xl bg-ink/5 px-4 py-3 text-xs text-ink/55">
-          Scanning is unavailable in this build — it needs the Firebase backend (set the <code>VITE_FIREBASE_*</code> values and rebuild).
+          Scanning is unavailable in this build — it needs Firebase sign-in and the WalletZen API (<code>VITE_API_URL</code>).
         </p>
       )}
       <p className="mt-3 flex items-start gap-1.5 text-[11px] text-ink/40">
         <ShieldCheck size={13} className="mt-px shrink-0" />
-        Images are downscaled on your device and sent through WalletZen's server to Claude (Anthropic) for reading — not stored. Nothing is saved until you
+        Images are downscaled on your device and read by WalletZen's server using Cloudflare Workers AI — not stored. Nothing is saved until you
         confirm.
       </p>
 

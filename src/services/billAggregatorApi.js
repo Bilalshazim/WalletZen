@@ -1,10 +1,10 @@
 /**
  * Utility bill inquiry (LESCO, FESCO and the other electricity companies; SNGPL, PTCL, internet).
  *
- * LIVE mode — when VITE_BILL_API_URL is set, electricity bills come from the WalletZen API worker (worker/), which
+ * LIVE mode — when VITE_API_URL is set (see apiClient.js), electricity bills come from the WalletZen API worker (worker/), which
  * reads the official PITC web bill:
  *
- *   POST {VITE_BILL_API_URL}/bills/inquiry
+ *   POST {VITE_API_URL}/bills/inquiry
  *   Authorization: Bearer <Firebase ID token>          (required)
  *   body:     { "provider": "LESCO", "idType": "reference" | "consumer", "identifier": "04111234567890",
  *               "areaCode": "U" | "R" }                    (areaCode only for electricity reference numbers)
@@ -18,13 +18,11 @@
  * DEMO mode — no URL configured, or a biller the worker can't read yet (gas, PTCL, internet): a deterministic mock
  * (same identifier → same bill). Every demo bill is tagged `source: 'demo'` and labelled "Demo" in the UI.
  */
-import { auth } from './firebase';
+import { API_URL, apiPost } from './apiClient';
 import { UTILITY_PROVIDERS } from '../utils/constants';
 import { toISODate } from '../utils/formatters';
 
-const BASE_URL = import.meta.env.VITE_BILL_API_URL?.replace(/\/$/, '');
-
-export const BILL_API_MODE = BASE_URL ? 'live' : 'demo';
+export const BILL_API_MODE = API_URL ? 'live' : 'demo';
 
 /** True when this biller's bills are read live (electricity companies on the PITC web bill). */
 export const isLiveProvider = (provider) => BILL_API_MODE === 'live' && Boolean(UTILITY_PROVIDERS[provider]?.officialBillUrl);
@@ -54,23 +52,13 @@ export function splitReference(identifier) {
 }
 
 async function fetchLive({ provider, idType, identifier }) {
-  const headers = { 'Content-Type': 'application/json' };
-  const token = await auth?.currentUser?.getIdToken();
-  if (!token) throw new Error('Sign in to fetch real bills.');
-  headers.Authorization = `Bearer ${token}`;
-
-  const response = await fetch(`${BASE_URL}/bills/inquiry`, {
-    method: 'POST',
-    headers,
-    // Electricity references go out as 14 digits + a separate U/R area code, like the official PITC form.
-    body: JSON.stringify(
-      UTILITY_PROVIDERS[provider].ids[idType]?.areaCode
-        ? { provider, idType, identifier: splitReference(identifier).digits, areaCode: splitReference(identifier).areaCode }
-        : { provider, idType, identifier },
-    ),
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || `Bill inquiry failed (${response.status})`);
+  // Electricity references go out as 14 digits + a separate U/R area code, like the official PITC form.
+  const body = await apiPost(
+    '/bills/inquiry',
+    UTILITY_PROVIDERS[provider].ids[idType]?.areaCode
+      ? { provider, idType, identifier: splitReference(identifier).digits, areaCode: splitReference(identifier).areaCode }
+      : { provider, idType, identifier },
+  );
 
   const amount = Number(body.amount);
   if (!Number.isFinite(amount) || !ISO_DATE.test(body.dueDate ?? '')) {
