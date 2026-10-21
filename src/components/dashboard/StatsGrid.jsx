@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, CalendarDays, Wallet } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, CalendarDays, Hourglass } from 'lucide-react';
 import GlassContainer from '../common/GlassContainer';
 import IconCircle from '../common/IconCircle';
 import SegmentedControl from '../common/SegmentedControl';
 import { Input } from '../common/FormField';
 import { useFinance } from '../../context/FinanceContext';
-import { periodRange, rangeSummary } from '../../utils/analytics';
+import { periodRange, PROJECTION_DAYS, rangeSummary } from '../../utils/analytics';
 import { cx, formatCurrency, formatDate, todayISO } from '../../utils/formatters';
 
 const PERIODS = [
@@ -46,7 +46,7 @@ function StatTile({ label, value, icon, color, hint, valueClass, className }) {
  * screenshot imports and bill payments are reflected on the next render.
  */
 export default function StatsGrid() {
-  const { accounts, transactions } = useFinance();
+  const { transactions, projected } = useFinance();
   const [{ period, custom }, setState] = useState(readPeriod);
 
   const update = (patch) =>
@@ -66,10 +66,9 @@ export default function StatsGrid() {
     const today = todayISO();
     const todays = rangeSummary(transactions, today, today);
     const inPeriod = rangeSummary(transactions, range.from, range.to);
-    const spendable = accounts.filter((a) => a.type !== 'savings').reduce((sum, a) => sum + (a.balance ?? 0), 0);
-    const todayExpenses = transactions.filter((t) => t.date === today && t.type === 'expense').length;
-    return { todays, todayExpenses, inPeriod, spendable };
-  }, [transactions, accounts, range.from, range.to]);
+    const todayExpenses = transactions.filter((t) => t.date === today && t.type === 'expense' && t.status !== 'pending').length;
+    return { todays, todayExpenses, inPeriod };
+  }, [transactions, range.from, range.to]);
 
   const periodLabel =
     period === 'month'
@@ -127,12 +126,16 @@ export default function StatsGrid() {
           hint={periodLabel}
         />
         <StatTile
-          label="Available balance"
-          value={formatCurrency(stats.spendable)}
-          icon={Wallet}
-          color="#3987E5"
-          valueClass={stats.spendable < 0 ? 'text-red-600 dark:text-red-300' : 'text-ink'}
-          hint={`Cash, bank & wallets · period net ${formatCurrency(net, { sign: true })}`}
+          label="Projected income"
+          value={formatCurrency(projected.income)}
+          icon={Hourglass}
+          color="#C98500"
+          valueClass={projected.income > 0 ? 'text-ink' : 'text-ink/40'}
+          hint={
+            projected.incomeCount
+              ? `${projected.incomeCount} pending · not in balance yet`
+              : `Nothing expected · period net ${formatCurrency(net, { sign: true })}`
+          }
         />
       </div>
     </section>

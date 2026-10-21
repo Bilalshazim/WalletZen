@@ -73,6 +73,26 @@ that need a secret key. One-time setup:
 
 Logs: `firebase functions:log`. The project id is in `.firebaserc`.
 
+## Money model: realized, projected, savings & net worth
+
+- **Current balance (realized)** — cleared money in cash, bank and wallet accounts: opening balances + cleared income
+  − cleared expenses (± transfers and loans linked to an account). Only cleared entries move a balance.
+- **Pending / projected** — a future-dated entry (e.g. next month's salary) is always saved as *pending*; today's or
+  earlier entries can be pending too (*Expected* / *Not paid yet*). Pending items show as **Projected income** and in
+  the balance card's 30-day projection (with bills, subscriptions and Commattie installments due), and only count once
+  you tap **Received** / **Paid** in Activity. Older entries without a status count as cleared.
+- **Savings** — **Move to savings** (balance card) or **Transfer** (Accounts) moves money between your own accounts.
+  Transfers are never income or expense.
+- **Net worth** = savings vault balances + money owed to you − money you owe. The day-to-day operating balance is
+  deliberately excluded.
+- **Debts & receivables** (Accounts tab) — a contacts directory (Payee / Debtor / Creditor, phone, email, note). Each
+  contact has a loan ledger (*I lent*, *I borrowed*, *They repaid me*, *I repaid them*) with a running balance. Linking
+  an entry to an account moves that account's balance; loans never appear in income/expense stats. Income and expenses
+  can also name a contact as *Paid to* / *Received from*.
+
+Logic lives in `src/utils/analytics.js` (rules) and `src/context/FinanceContext.jsx` (atomic writes); data is stored
+in the `contacts` and `ledger` collections next to `accounts` and `transactions`.
+
 ## Bills & subscriptions
 
 Planner → **Bills & subscriptions** manages digital subscriptions (PKR, USD or EUR, monthly/yearly), utility bills and other

@@ -8,11 +8,12 @@ import BottomNav, { TABS } from './components/common/BottomNav';
 import Toast from './components/common/Toast';
 import Header from './components/dashboard/Header';
 import NetWorthSummary from './components/dashboard/NetWorthSummary';
-import SavingsSummary from './components/dashboard/SavingsSummary';
+import RealizedBalance from './components/dashboard/RealizedBalance';
 import StatsGrid from './components/dashboard/StatsGrid';
 import CashFlowChart from './components/dashboard/CashFlowChart';
 import SpendingDonut from './components/dashboard/SpendingDonut';
 import AccountList from './components/accounts/AccountList';
+import PeopleDirectory from './components/people/PeopleDirectory';
 import TransactionForm from './components/transactions/TransactionForm';
 import TransactionHistory from './components/transactions/TransactionHistory';
 import SubscriptionsPlanner from './components/planner/SubscriptionsPlanner';
@@ -81,8 +82,8 @@ export default function App() {
         {tab === 'dashboard' && (
           <>
             <div className="grid grid-cols-2 gap-3 sm:gap-5 [&>*]:min-w-0">
+              <RealizedBalance />
               <NetWorthSummary />
-              <SavingsSummary />
             </div>
             <StatsGrid />
             <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
@@ -96,7 +97,12 @@ export default function App() {
           </>
         )}
 
-        {tab === 'accounts' && <AccountList />}
+        {tab === 'accounts' && (
+          <>
+            <AccountList />
+            <PeopleDirectory />
+          </>
+        )}
         {tab === 'transactions' && (
           <>
             <BulkScreenshotScanner />

@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
-import { ReceiptText, Search } from 'lucide-react';
+import { ArrowLeftRight, Clock, ReceiptText, Search } from 'lucide-react';
+import Button from '../common/Button';
 import Card from '../common/Card';
 import EmptyState from '../common/EmptyState';
 import AccountIcon from '../common/AccountIcon';
 import IconCircle from '../common/IconCircle';
 import SegmentedControl from '../common/SegmentedControl';
 import TransactionForm from './TransactionForm';
+import TransferModal from '../accounts/TransferModal';
 import { useFinance } from '../../context/FinanceContext';
+import { isCleared } from '../../utils/analytics';
 import { getCategory } from '../../utils/constants';
 import { cx, formatCurrency, formatDate, todayISO } from '../../utils/formatters';
 
@@ -14,39 +17,83 @@ const FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'income', label: 'Income' },
   { value: 'expense', label: 'Expense' },
+  { value: 'pending', label: 'Pending' },
 ];
 
-function TransactionRow({ tx, account, onSelect }) {
-  const { label, icon, color } = getCategory(tx.type, tx.category);
+const TRANSFER_CATEGORY = { label: 'Transfer', icon: ArrowLeftRight, color: '#9085E9' };
+
+function AccountChip({ account }) {
+  return account ? (
+    <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-ink/5 py-px pl-px pr-2">
+      <AccountIcon account={account} size="xs" />
+      <span className="truncate">{account.name}</span>
+    </span>
+  ) : (
+    <span className="truncate">Deleted account</span>
+  );
+}
+
+function TransactionRow({ tx, accountsById, contact, onSelect }) {
+  const { clearTransaction } = useFinance();
+  const [clearing, setClearing] = useState(false);
+  const isTransfer = tx.type === 'transfer';
+  const { label, icon, color } = isTransfer ? TRANSFER_CATEGORY : getCategory(tx.type, tx.category);
   const isIncome = tx.type === 'income';
+  const pending = !isCleared(tx);
+  const account = accountsById[tx.accountId];
+  const target = isTransfer ? accountsById[tx.toAccountId] : null;
+
+  const clear = async () => {
+    setClearing(true);
+    await clearTransaction(tx);
+    setClearing(false);
+  };
 
   return (
-    <li>
+    <li className="flex items-center gap-1">
       <button
         type="button"
         onClick={() => onSelect(tx)}
-        className="flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition hover:bg-ink/5"
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition hover:bg-ink/5"
       >
         <IconCircle icon={icon} color={color} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-ink">{tx.note || label}</p>
+          <p className="truncate text-sm font-medium text-ink">
+            {tx.note || (isTransfer ? `To ${target?.name ?? 'deleted account'}` : contact?.name ?? label)}
+          </p>
           <p className="flex min-w-0 items-center gap-1.5 text-xs text-ink/45">
-            <span className="shrink-0">{label}</span>
-            <span aria-hidden="true">·</span>
-            {account ? (
-              <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-ink/5 py-px pl-px pr-2">
-                <AccountIcon account={account} size="xs" />
-                <span className="truncate">{account.name}</span>
+            {pending ? (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-400/15 px-1.5 py-px font-medium text-amber-700 dark:text-amber-300">
+                <Clock size={10} /> {isIncome ? 'Expected' : 'Unpaid'}
               </span>
             ) : (
-              <span className="truncate">Deleted account</span>
+              <span className="shrink-0">{label}</span>
+            )}
+            <span aria-hidden="true">·</span>
+            {isTransfer ? (
+              // Two chips don't fit on a phone; plain names truncate gracefully.
+              <span className="truncate">
+                {account?.name ?? 'Deleted account'} → {target?.name ?? 'Deleted account'}
+              </span>
+            ) : (
+              <AccountChip account={account} />
             )}
           </p>
         </div>
-        <span className={cx('text-sm font-semibold tabular-nums', isIncome ? 'text-accent' : 'text-ink')}>
-          {formatCurrency(isIncome ? tx.amount : -tx.amount)}
+        <span
+          className={cx(
+            'whitespace-nowrap text-sm font-semibold tabular-nums',
+            pending ? 'text-ink/40' : isTransfer ? 'text-ink/70' : isIncome ? 'text-accent' : 'text-ink',
+          )}
+        >
+          {isTransfer ? formatCurrency(tx.amount) : formatCurrency(isIncome ? tx.amount : -tx.amount)}
         </span>
       </button>
+      {pending && (
+        <Button size="sm" variant="secondary" loading={clearing} onClick={clear} aria-label={`Mark ${tx.note || label} as ${isIncome ? 'received' : 'paid'}`}>
+          {isIncome ? 'Received' : 'Paid'}
+        </Button>
+      )}
     </li>
   );
 }
@@ -58,7 +105,7 @@ const dayLabel = (iso) => {
 
 /** Transaction list. With `limit` it renders a compact "recent" card; otherwise a full, filterable history. */
 export default function TransactionHistory({ limit, onShowAll }) {
-  const { transactions, accountsById } = useFinance();
+  const { transactions, accountsById, contactsById } = useFinance();
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState(null);
@@ -67,12 +114,12 @@ export default function TransactionHistory({ limit, onShowAll }) {
     if (limit) return transactions.slice(0, limit);
     const q = query.trim().toLowerCase();
     return transactions.filter((tx) => {
-      if (filter !== 'all' && tx.type !== filter) return false;
+      if (filter === 'pending' ? isCleared(tx) : filter !== 'all' && tx.type !== filter) return false;
       if (!q) return true;
-      return [tx.note, getCategory(tx.type, tx.category).label, accountsById[tx.accountId]?.name]
+      return [tx.note, getCategory(tx.type, tx.category).label, accountsById[tx.accountId]?.name, contactsById[tx.contactId]?.name]
         .some((text) => text?.toLowerCase().includes(q));
     });
-  }, [transactions, accountsById, filter, query, limit]);
+  }, [transactions, accountsById, contactsById, filter, query, limit]);
 
   const groups = useMemo(() => {
     const map = new Map();
@@ -81,7 +128,7 @@ export default function TransactionHistory({ limit, onShowAll }) {
   }, [visible]);
 
   const renderRow = (tx) => (
-    <TransactionRow key={tx.id} tx={tx} account={accountsById[tx.accountId]} onSelect={setEditing} />
+    <TransactionRow key={tx.id} tx={tx} accountsById={accountsById} contact={contactsById[tx.contactId]} onSelect={setEditing} />
   );
 
   return (
@@ -130,7 +177,8 @@ export default function TransactionHistory({ limit, onShowAll }) {
         </div>
       )}
 
-      <TransactionForm open={Boolean(editing)} transaction={editing} onClose={() => setEditing(null)} />
+      <TransactionForm open={Boolean(editing) && editing.type !== 'transfer'} transaction={editing} onClose={() => setEditing(null)} />
+      <TransferModal open={editing?.type === 'transfer'} transfer={editing} onClose={() => setEditing(null)} />
     </Card>
   );
 }

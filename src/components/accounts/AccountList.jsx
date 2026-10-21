@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Plus, WalletCards } from 'lucide-react';
+import { ArrowLeftRight, Plus, WalletCards } from 'lucide-react';
 import AccountCard from './AccountCard';
 import AddAccountModal from './AddAccountModal';
+import TransferModal from './TransferModal';
 import Button from '../common/Button';
 import Card from '../common/Card';
 import EmptyState from '../common/EmptyState';
@@ -10,9 +11,11 @@ import { ACCOUNT_TYPES } from '../../utils/constants';
 import { formatCurrency } from '../../utils/formatters';
 
 export default function AccountList() {
-  const { accounts, netWorth } = useFinance();
+  const { accounts } = useFinance();
   // `null` = closed, `{}` = new account, otherwise the account being edited.
   const [editing, setEditing] = useState(null);
+  const [transferring, setTransferring] = useState(false);
+  const total = accounts.reduce((sum, a) => sum + (a.balance ?? 0), 0);
 
   const groups = Object.entries(ACCOUNT_TYPES)
     .map(([type, meta]) => ({ type, meta, items: accounts.filter((a) => a.type === type) }))
@@ -22,11 +25,18 @@ export default function AccountList() {
     <div className="space-y-5">
       <Card
         title="Linked accounts"
-        subtitle={`${accounts.length} account${accounts.length === 1 ? '' : 's'} · ${formatCurrency(netWorth)} total`}
+        subtitle={`${accounts.length} account${accounts.length === 1 ? '' : 's'} · ${formatCurrency(total)} total`}
         action={
-          <Button size="sm" icon={Plus} onClick={() => setEditing({})}>
-            Add
-          </Button>
+          <div className="flex gap-2">
+            {accounts.length > 1 && (
+              <Button size="sm" variant="secondary" icon={ArrowLeftRight} onClick={() => setTransferring(true)} aria-label="Transfer between accounts">
+                <span className="hidden min-[380px]:inline">Transfer</span>
+              </Button>
+            )}
+            <Button size="sm" icon={Plus} onClick={() => setEditing({})}>
+              Add
+            </Button>
+          </div>
         }
       >
         {accounts.length === 0 ? (
@@ -68,6 +78,7 @@ export default function AccountList() {
         </section>
       ))}
 
+      <TransferModal open={transferring} onClose={() => setTransferring(false)} />
       <AddAccountModal open={Boolean(editing)} account={editing?.id ? editing : null} onClose={() => setEditing(null)} />
     </div>
   );

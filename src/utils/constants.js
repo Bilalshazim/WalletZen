@@ -83,6 +83,26 @@ export function getCategory(type, id) {
   return source[id] ?? FALLBACK_CATEGORY;
 }
 
+// ---------- Contacts, debts & receivables ----------
+
+/** How a person relates to you. A contact's ledger balance can still move either way. */
+export const CONTACT_CATEGORIES = {
+  payee: { label: 'Payee', hint: 'Someone you pay or get paid by', color: '#3987E5' },
+  debtor: { label: 'Debtor', hint: 'Owes you money', color: '#199E70' },
+  creditor: { label: 'Creditor', hint: 'You owe them money', color: '#D95926' },
+};
+
+/**
+ * Non-routine loan entries in a contact's ledger. `owed` is the effect on what the contact owes you
+ * (+ = receivable grows), `cash` the effect on the linked account (if any). Neither counts as income or expense.
+ */
+export const LEDGER_KINDS = {
+  lent: { label: 'I lent', verb: 'Lent', owed: 1, cash: -1 },
+  borrowed: { label: 'I borrowed', verb: 'Borrowed', owed: -1, cash: 1 },
+  collected: { label: 'They repaid me', verb: 'Received back', owed: -1, cash: 1 },
+  repaid: { label: 'I repaid them', verb: 'Paid back', owed: 1, cash: -1 },
+};
+
 export const CURRENCIES = ['PKR', 'USD', 'EUR'];
 /** Foreign currencies convert to PKR at a user-editable rate (Settings). */
 export const FOREIGN_CURRENCIES = {

@@ -15,7 +15,7 @@ const TYPE_OPTIONS = [
 ];
 
 function FormBody({ transaction, defaultType, onClose }) {
-  const { accounts, saveTransaction, deleteTransaction } = useFinance();
+  const { accounts, contacts, saveTransaction, deleteTransaction } = useFinance();
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(() => ({
     type: transaction?.type ?? defaultType,
@@ -24,7 +24,13 @@ function FormBody({ transaction, defaultType, onClose }) {
     accountId: transaction?.accountId ?? accounts[0]?.id ?? '',
     date: transaction?.date ?? todayISO(),
     note: transaction?.note ?? '',
+    status: transaction?.status ?? 'cleared',
+    contactId: transaction?.contactId ?? '',
   }));
+  // Future-dated entries are always projected; they only count once marked received/paid.
+  const future = form.date > todayISO();
+  const pending = future || form.status === 'pending';
+  const isIncome = form.type === 'income';
 
   const set = (field) => (value) => setForm((prev) => ({ ...prev, [field]: value }));
 
@@ -92,6 +98,19 @@ function FormBody({ transaction, defaultType, onClose }) {
         </Select>
       </Field>
 
+      {contacts.length > 0 && (
+        <Field label={isIncome ? 'Received from (optional)' : 'Paid to (optional)'}>
+          <Select value={form.contactId} onChange={(e) => set('contactId')(e.target.value)}>
+            <option value="">No contact</option>
+            {contacts.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <Field label="Date">
           <Input type="date" value={form.date} max="9999-12-31" onChange={(e) => set('date')(e.target.value)} required />
@@ -101,10 +120,27 @@ function FormBody({ transaction, defaultType, onClose }) {
         </Field>
       </div>
 
+      <div className="space-y-2">
+        <SegmentedControl
+          size="sm"
+          value={pending ? 'pending' : 'cleared'}
+          onChange={(value) => !future && set('status')(value)}
+          options={[
+            { value: 'cleared', label: isIncome ? 'Received' : 'Paid' },
+            { value: 'pending', label: isIncome ? 'Expected (pending)' : 'Not paid yet' },
+          ]}
+        />
+        <p className="text-xs text-ink/50">
+          {pending
+            ? `${future ? 'Future date — ' : ''}Shown as projected. Your balance won't change until you mark it ${isIncome ? 'received' : 'paid'}.`
+            : `Counts in your current balance now.`}
+        </p>
+      </div>
+
       <div className="flex gap-3 pt-1">
         {transaction && <Button variant="danger" size="icon" icon={Trash2} onClick={remove} aria-label="Delete" disabled={busy} />}
         <Button type="submit" size="lg" className="flex-1" loading={busy}>
-          {transaction ? 'Save changes' : `Add ${form.type}`}
+          {transaction ? 'Save changes' : pending ? `Schedule ${form.type}` : `Add ${form.type}`}
         </Button>
       </div>
     </form>

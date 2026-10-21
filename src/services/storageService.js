@@ -19,7 +19,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 
-export const COLLECTIONS = ['accounts', 'transactions', 'bills', 'committees'];
+export const COLLECTIONS = ['accounts', 'transactions', 'bills', 'committees', 'contacts', 'ledger'];
 
 const newId = () =>
   globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;

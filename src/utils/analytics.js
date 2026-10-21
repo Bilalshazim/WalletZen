@@ -1,7 +1,76 @@
-import { getCategory } from './constants';
+import { getCategory, LEDGER_KINDS } from './constants';
 import { addMonths, daysUntil, monthKey, toISODate, todayISO } from './formatters';
 
-const signed = (tx) => (tx.type === 'income' ? tx.amount : -tx.amount);
+// ---------- Realized vs projected ----------
+//
+// A transaction is *cleared* (realized) unless it is explicitly `status: 'pending'` — entries saved before the
+// status field existed were all applied to balances, so they count as cleared. Only cleared entries move account
+// balances; pending ones (future-dated salary, a bill you haven't paid yet) are *projected*.
+
+export const isCleared = (tx) => tx.status !== 'pending';
+
+/** Routine income/expense (not transfers between your own accounts). */
+export const isFlow = (tx) => tx.type === 'income' || tx.type === 'expense';
+
+/** Counts towards income/expense totals: routine and already cleared. */
+const isRealizedFlow = (tx) => isFlow(tx) && isCleared(tx);
+
+/** Balance changes a transaction applies to accounts: [{ accountId, delta }]. Pending entries apply none. */
+export function transactionEffects(tx) {
+  if (!isCleared(tx)) return [];
+  if (tx.type === 'transfer') {
+    return [
+      { accountId: tx.accountId, delta: -tx.amount },
+      { accountId: tx.toAccountId, delta: tx.amount },
+    ];
+  }
+  return [{ accountId: tx.accountId, delta: tx.type === 'income' ? tx.amount : -tx.amount }];
+}
+
+/** Balance change a loan ledger entry applies to its linked account (none when no account is linked). */
+export function ledgerEffects(entry) {
+  const kind = LEDGER_KINDS[entry.kind];
+  return kind && entry.accountId ? [{ accountId: entry.accountId, delta: kind.cash * entry.amount }] : [];
+}
+
+/** How a ledger entry changes what the contact owes you (+ = they owe you more). */
+export const ledgerOwedDelta = (entry) => (LEDGER_KINDS[entry.kind]?.owed ?? 0) * entry.amount;
+
+/** Running balance per contact id: positive = receivable (they owe you), negative = payable (you owe them). */
+export function contactBalances(ledger) {
+  const balances = {};
+  for (const entry of ledger) balances[entry.contactId] = (balances[entry.contactId] ?? 0) + ledgerOwedDelta(entry);
+  return balances;
+}
+
+/** Totals across all contacts: { receivable, payable } (both positive numbers). */
+export function debtTotals(balances) {
+  return Object.values(balances).reduce(
+    (acc, value) => {
+      if (value > 0) acc.receivable += value;
+      else acc.payable -= value;
+      return acc;
+    },
+    { receivable: 0, payable: 0 },
+  );
+}
+
+export const PROJECTION_DAYS = 30;
+
+/**
+ * Money expected but not yet realized: pending income, plus pending expenses and planner items (bills,
+ * subscriptions, Commattie installments) due within the next PROJECTION_DAYS. Overdue items are included.
+ */
+export function projection(transactions, upcoming) {
+  const horizon = toISODate(new Date(Date.now() + PROJECTION_DAYS * 864e5));
+  const pending = transactions.filter((tx) => !isCleared(tx) && isFlow(tx));
+  const pendingIncome = pending.filter((tx) => tx.type === 'income');
+  const pendingExpense = pending.filter((tx) => tx.type === 'expense' && tx.date <= horizon);
+  const plannerDue = upcoming.filter((item) => item.amount > 0 && item.dueDate <= horizon);
+  const income = pendingIncome.reduce((sum, tx) => sum + tx.amount, 0);
+  const expense = pendingExpense.reduce((sum, tx) => sum + tx.amount, 0) + plannerDue.reduce((sum, item) => sum + item.amount, 0);
+  return { income, expense, net: income - expense, incomeCount: pendingIncome.length, expenseCount: pendingExpense.length + plannerDue.length };
+}
 
 /** The last `count` month keys ('YYYY-MM'), oldest first, ending with the current month. */
 export function recentMonths(count) {
@@ -17,18 +86,18 @@ const monthEnd = (key) => {
 export function monthSummary(transactions, key = monthKey(todayISO())) {
   return transactions.reduce(
     (acc, tx) => {
-      if (monthKey(tx.date) === key) acc[tx.type] += tx.amount;
+      if (isRealizedFlow(tx) && monthKey(tx.date) === key) acc[tx.type] += tx.amount;
       return acc;
     },
     { income: 0, expense: 0 },
   );
 }
 
-/** Income/expense totals (and entry count) for transactions dated within [from, to], inclusive. */
+/** Realized income/expense totals (and entry count) for transactions dated within [from, to], inclusive. */
 export function rangeSummary(transactions, from, to) {
   return transactions.reduce(
     (acc, tx) => {
-      if (tx.date >= from && tx.date <= to) {
+      if (isRealizedFlow(tx) && tx.date >= from && tx.date <= to) {
         acc[tx.type] += tx.amount;
         acc.count += 1;
       }
@@ -60,24 +129,31 @@ export function cashFlowSeries(transactions, months = 6) {
 }
 
 /**
- * Net worth at the end of each month, reconstructed backwards from today's balances:
- * remove every transaction dated after that month, and every account opened after it.
+ * Net worth (savings + receivables − debts) at the end of each month, reconstructed backwards from today:
+ * undo every savings-account balance change and every loan entry dated after that month, and every savings
+ * vault opened after it.
  */
-export function netWorthTrend(transactions, accounts, netWorth, months = 6) {
+export function netWorthTrend({ transactions, ledger, accounts, netWorth }, months = 6) {
+  const savingsIds = new Set(accounts.filter((a) => a.type === 'savings').map((a) => a.id));
+  const savingsDelta = (effects) => effects.reduce((sum, e) => sum + (savingsIds.has(e.accountId) ? e.delta : 0), 0);
   return recentMonths(months).map((key) => {
     const end = monthEnd(key);
-    const laterFlow = transactions.filter((tx) => tx.date > end).reduce((sum, tx) => sum + signed(tx), 0);
+    const later = (item) => item.date > end;
+    const laterSavings =
+      transactions.filter(later).reduce((sum, tx) => sum + savingsDelta(transactionEffects(tx)), 0) +
+      ledger.filter(later).reduce((sum, entry) => sum + savingsDelta(ledgerEffects(entry)), 0);
+    const laterDebt = ledger.filter(later).reduce((sum, entry) => sum + ledgerOwedDelta(entry), 0);
     const laterOpenings = accounts
-      .filter((a) => a.openedOn > end)
+      .filter((a) => savingsIds.has(a.id) && a.openedOn > end)
       .reduce((sum, a) => sum + (a.openingBalance ?? 0), 0);
-    return { key, value: netWorth - laterFlow - laterOpenings };
+    return { key, value: netWorth - laterSavings - laterDebt - laterOpenings };
   });
 }
 
 export function spendingBreakdown(transactions, key = monthKey(todayISO())) {
   const totals = {};
   for (const tx of transactions) {
-    if (tx.type === 'expense' && monthKey(tx.date) === key) totals[tx.category] = (totals[tx.category] ?? 0) + tx.amount;
+    if (isRealizedFlow(tx) && tx.type === 'expense' && monthKey(tx.date) === key) totals[tx.category] = (totals[tx.category] ?? 0) + tx.amount;
   }
   const sorted = Object.entries(totals)
     .map(([id, value]) => ({ id, value, ...getCategory('expense', id) }))

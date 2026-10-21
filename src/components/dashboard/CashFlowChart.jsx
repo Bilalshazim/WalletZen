@@ -9,7 +9,7 @@ import { formatCompact, formatCurrency, formatMonth } from '../../utils/formatte
 
 const VIEWS = [
   { value: 'flow', label: 'Cash flow' },
-  { value: 'savings', label: 'Savings trend' },
+  { value: 'savings', label: 'Net worth trend' },
 ];
 
 const AXIS = { stroke: 'rgb(var(--ink) / 0.45)', fontSize: 11, tickLine: false, axisLine: false };
@@ -46,20 +46,20 @@ function Legend() {
   );
 }
 
-/** Monthly income vs expense bars, with a toggle to the net-worth (savings growth) area trend. */
+/** Monthly income vs expense bars, with a toggle to the net-worth (savings + receivables − debts) trend. */
 export default function CashFlowChart() {
-  const { transactions, accounts, netWorth } = useFinance();
+  const { transactions, ledger, accounts, netWorth } = useFinance();
   const [view, setView] = useState('flow');
 
   const flow = useMemo(() => cashFlowSeries(transactions), [transactions]);
-  const trend = useMemo(() => netWorthTrend(transactions, accounts, netWorth), [transactions, accounts, netWorth]);
+  const trend = useMemo(() => netWorthTrend({ transactions, ledger, accounts, netWorth }), [transactions, ledger, accounts, netWorth]);
 
   const sixMonthNet = flow.reduce((sum, m) => sum + m.net, 0);
   const growth = trend[trend.length - 1].value - trend[0].value;
 
   return (
     <Card
-      title={view === 'flow' ? 'Monthly cash flow' : 'Savings growth'}
+      title={view === 'flow' ? 'Monthly cash flow' : 'Net worth trend'}
       subtitle={
         view === 'flow'
           ? `Net ${formatCurrency(sixMonthNet, { sign: true })} over 6 months`

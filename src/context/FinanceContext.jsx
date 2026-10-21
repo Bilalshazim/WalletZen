@@ -3,17 +3,27 @@ import { useAuth } from './AuthContext';
 import { COLLECTIONS, createStore } from '../services/storageService';
 import { useSettings } from './SettingsContext';
 import { cleanOwner, fetchUtilityBill, SYNC_INTERVAL_MS } from '../services/billAggregatorApi';
-import { billAmountPKR, billCycle, upcomingItems } from '../utils/analytics';
-import { BILLING_CYCLES, UTILITY_PROVIDERS } from '../utils/constants';
+import {
+  billAmountPKR,
+  billCycle,
+  contactBalances,
+  debtTotals,
+  ledgerEffects,
+  projection,
+  transactionEffects,
+  upcomingItems,
+} from '../utils/analytics';
+import { BILLING_CYCLES, CONTACT_CATEGORIES, LEDGER_KINDS, UTILITY_PROVIDERS } from '../utils/constants';
 import { addMonths, formatMoney, todayISO } from '../utils/formatters';
 
 const FinanceContext = createContext(null);
 
-const EMPTY = { accounts: [], transactions: [], bills: [], committees: [] };
+const EMPTY = { accounts: [], transactions: [], bills: [], committees: [], contacts: [], ledger: [] };
 
 const byCreated = (a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0);
 const byDateDesc = (a, b) => b.date.localeCompare(a.date) || (b.createdAt ?? 0) - (a.createdAt ?? 0);
 const byDueDate = (a, b) => a.dueDate.localeCompare(b.dueDate);
+const byName = (a, b) => a.name.localeCompare(b.name);
 
 const balanceOp = (accountId, delta) => ({
   type: 'update',
@@ -22,7 +32,19 @@ const balanceOp = (accountId, delta) => ({
   increment: { balance: delta },
 });
 
-const signed = (tx) => (tx.type === 'income' ? tx.amount : -tx.amount);
+/**
+ * One balance op per account from a list of effects ([{ accountId, delta }]), each multiplied by `factor`
+ * (-1 reverses). Effects on the same account are merged; accounts in `skip` (e.g. deleted) are left out.
+ */
+function balanceOps(effects, { factor = 1, skip } = {}) {
+  const totals = {};
+  for (const { accountId, delta } of effects) {
+    if (accountId && !skip?.has(accountId)) totals[accountId] = (totals[accountId] ?? 0) + factor * delta;
+  }
+  return Object.entries(totals)
+    .filter(([, delta]) => delta !== 0)
+    .map(([accountId, delta]) => balanceOp(accountId, delta));
+}
 
 /** Bill fields refreshed from an aggregator / demo lookup result. */
 const fetchedBillFields = (result) => ({
@@ -80,10 +102,33 @@ export function FinanceProvider({ children }) {
   const transactions = useMemo(() => [...data.transactions].sort(byDateDesc), [data.transactions]);
   const bills = useMemo(() => [...data.bills].sort(byDueDate), [data.bills]);
   const committees = useMemo(() => [...data.committees].sort(byCreated), [data.committees]);
+  const contacts = useMemo(() => [...data.contacts].sort(byName), [data.contacts]);
+  const ledger = useMemo(() => [...data.ledger].sort(byDateDesc), [data.ledger]);
 
   const accountsById = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a])), [accounts]);
-  const netWorth = useMemo(() => accounts.reduce((sum, a) => sum + (a.balance ?? 0), 0), [accounts]);
+  const contactsById = useMemo(() => Object.fromEntries(contacts.map((c) => [c.id, c])), [contacts]);
   const upcoming = useMemo(() => upcomingItems(bills, committees, rates), [bills, committees, rates]);
+
+  // Realized balance: liquid money in cash, bank and wallet accounts. Balances only ever move for cleared
+  // entries, so this is opening balances + cleared income − cleared expenses (± transfers and loan cash).
+  // Net worth: accumulated savings plus net settled capital from loans (receivables − debts) — deliberately
+  // not the day-to-day operational balance.
+  const totals = useMemo(() => {
+    const sumOf = (list) => list.reduce((sum, a) => sum + (a.balance ?? 0), 0);
+    const realizedBalance = sumOf(accounts.filter((a) => a.type !== 'savings'));
+    const savings = sumOf(accounts.filter((a) => a.type === 'savings'));
+    const balances = contactBalances(ledger);
+    const { receivable, payable } = debtTotals(balances);
+    return {
+      realizedBalance,
+      savings,
+      receivable,
+      payable,
+      contactBalances: balances,
+      netWorth: savings + receivable - payable,
+      projected: projection(transactions, upcoming),
+    };
+  }, [accounts, ledger, transactions, upcoming]);
 
   /** Commits ops atomically and reports the outcome as a toast. Resolves to true on success. */
   const run = useCallback(
@@ -157,55 +202,118 @@ export function FinanceProvider({ children }) {
 
   const deleteAccount = useCallback(
     (id) => {
+      // Transfers touching the account go with it; the other side keeps its balance, like any money moved out.
+      const linked = (t) => t.accountId === id || t.toAccountId === id;
       const ops = [
         { type: 'delete', collection: 'accounts', id },
-        ...transactions.filter((t) => t.accountId === id).map((t) => ({ type: 'delete', collection: 'transactions', id: t.id })),
+        ...transactions.filter(linked).map((t) => ({ type: 'delete', collection: 'transactions', id: t.id })),
         ...bills.filter((b) => b.accountId === id).map((b) => ({ type: 'update', collection: 'bills', id: b.id, data: { accountId: null } })),
         ...committees
           .filter((c) => c.accountId === id)
           .map((c) => ({ type: 'update', collection: 'committees', id: c.id, data: { accountId: null } })),
+        // Loans stay in the contact's ledger, just no longer tied to an account.
+        ...ledger.filter((e) => e.accountId === id).map((e) => ({ type: 'update', collection: 'ledger', id: e.id, data: { accountId: null } })),
       ];
       return run(ops, 'Account deleted');
     },
-    [run, transactions, bills, committees],
+    [run, transactions, bills, committees, ledger],
   );
 
   // ---------- Transactions ----------
 
+  /** Balance ops that undo `previous` (if any) and apply `next` (if any), skipping deleted accounts. */
+  const rebalance = useCallback(
+    (previous, next) => {
+      const deleted = new Set(
+        [previous, next].flatMap((tx) => (tx ? [tx.accountId, tx.toAccountId] : [])).filter((id) => id && !accountsById[id]),
+      );
+      const effects = [
+        ...(previous ? transactionEffects(previous).map((e) => ({ ...e, delta: -e.delta })) : []),
+        ...(next ? transactionEffects(next) : []),
+      ];
+      return balanceOps(effects, { skip: deleted });
+    },
+    [accountsById],
+  );
+
+  /**
+   * Income or expense. Future-dated entries are always saved as pending (projected) and never touch the balance;
+   * today's or past entries can be pending too ("not received yet") until clearTransaction marks them cleared.
+   */
   const saveTransaction = useCallback(
-    ({ id, type, amount, category, accountId, note, date }) =>
+    ({ id, type, amount, category, accountId, note, date, status, contactId }) =>
       guarded(() => {
         requireAccount(accountId);
-        const next = { type, amount: Number(amount), category, accountId, note: note?.trim() ?? '', date };
-        const deltas = { [accountId]: signed(next) };
-
-        if (!id) {
-          const txId = store.newId();
-          return [
-            { type: 'set', collection: 'transactions', id: txId, data: { ...next, createdAt: Date.now() } },
-            balanceOp(accountId, deltas[accountId]),
-          ];
-        }
-
-        // Editing: reverse the old entry's effect, then apply the new one (accounts may differ).
-        const previous = transactions.find((t) => t.id === id);
-        if (previous && accountsById[previous.accountId]) {
-          deltas[previous.accountId] = (deltas[previous.accountId] ?? 0) - signed(previous);
-        }
+        const pending = status === 'pending' || date > todayISO();
+        const next = {
+          type,
+          amount: Number(amount),
+          category,
+          accountId,
+          note: note?.trim() ?? '',
+          date,
+          status: pending ? 'pending' : 'cleared',
+          contactId: contactId || null,
+        };
+        const previous = id ? transactions.find((t) => t.id === id) : null;
+        const txId = id ?? store.newId();
         return [
-          { type: 'update', collection: 'transactions', id, data: next },
-          ...Object.entries(deltas)
-            .filter(([, delta]) => delta !== 0)
-            .map(([accId, delta]) => balanceOp(accId, delta)),
+          id
+            ? { type: 'update', collection: 'transactions', id, data: next }
+            : { type: 'set', collection: 'transactions', id: txId, data: { ...next, createdAt: Date.now() } },
+          ...rebalance(previous, next),
         ];
-      }, id ? 'Transaction updated' : `${type === 'income' ? 'Income' : 'Expense'} recorded`),
-    [guarded, requireAccount, store, transactions, accountsById],
+      }, id ? 'Transaction updated' : `${type === 'income' ? 'Income' : 'Expense'} ${status === 'pending' || date > todayISO() ? 'scheduled' : 'recorded'}`),
+    [guarded, requireAccount, store, transactions, rebalance],
+  );
+
+  /** Marks a pending entry as received/paid: it now counts in the balance. An early clear is dated today. */
+  const clearTransaction = useCallback(
+    (tx) =>
+      guarded(() => {
+        requireAccount(tx.accountId);
+        const today = todayISO();
+        const next = { ...tx, status: 'cleared', date: tx.date > today ? today : tx.date };
+        return [
+          { type: 'update', collection: 'transactions', id: tx.id, data: { status: 'cleared', date: next.date } },
+          ...rebalance(tx, next),
+        ];
+      }, tx.type === 'income' ? 'Marked as received' : 'Marked as paid'),
+    [guarded, requireAccount, rebalance],
+  );
+
+  /** Moves money between your own accounts (e.g. allocating cash to a savings vault). Not income or expense. */
+  const saveTransfer = useCallback(
+    ({ id, fromAccountId, toAccountId, amount, date, note }) =>
+      guarded(() => {
+        requireAccount(fromAccountId);
+        requireAccount(toAccountId);
+        if (fromAccountId === toAccountId) throw new Error('Choose two different accounts.');
+        if (date > todayISO()) throw new Error('Transfers move money now — pick today or an earlier date.');
+        const next = {
+          type: 'transfer',
+          amount: Number(amount),
+          category: 'transfer',
+          accountId: fromAccountId,
+          toAccountId,
+          note: note?.trim() ?? '',
+          date,
+          status: 'cleared',
+        };
+        const previous = id ? transactions.find((t) => t.id === id) : null;
+        return [
+          id
+            ? { type: 'update', collection: 'transactions', id, data: next }
+            : { type: 'set', collection: 'transactions', id: store.newId(), data: { ...next, createdAt: Date.now() } },
+          ...rebalance(previous, next),
+        ];
+      }, accountsById[toAccountId]?.type === 'savings' ? 'Moved to savings' : 'Transfer saved'),
+    [guarded, requireAccount, store, transactions, rebalance, accountsById],
   );
 
   const deleteTransaction = useCallback(
     (tx) => {
-      const ops = [{ type: 'delete', collection: 'transactions', id: tx.id }];
-      if (accountsById[tx.accountId]) ops.push(balanceOp(tx.accountId, -signed(tx)));
+      const ops = [{ type: 'delete', collection: 'transactions', id: tx.id }, ...rebalance(tx, null)];
 
       // Undo whatever planner state this transaction settled.
       const bill = tx.billId && bills.find((b) => b.id === tx.billId);
@@ -223,7 +331,7 @@ export function FinanceProvider({ children }) {
       }
       return run(ops, 'Transaction deleted');
     },
-    [run, accountsById, bills, committees],
+    [run, rebalance, bills, committees],
   );
 
   // ---------- Bills, utilities & subscriptions ----------
@@ -438,7 +546,7 @@ export function FinanceProvider({ children }) {
             createdAt: Date.now(),
           };
           ops.push({ type: 'set', collection: 'transactions', id: store.newId(), data: tx });
-          deltas[row.accountId] = (deltas[row.accountId] ?? 0) + signed(tx);
+          for (const { accountId, delta } of transactionEffects(tx)) deltas[accountId] = (deltas[accountId] ?? 0) + delta;
         }
         for (const [accountId, delta] of Object.entries(deltas)) ops.push(balanceOp(accountId, delta));
         for (const { accountId, balance } of balanceSyncs) {
@@ -535,6 +643,76 @@ export function FinanceProvider({ children }) {
     [guarded, requireAccount, store],
   );
 
+  // ---------- Contacts & loan ledger (debts / receivables) ----------
+
+  const saveContact = useCallback(
+    ({ id, name, phone, email, note, category }) =>
+      guarded(() => {
+        if (!name?.trim()) throw new Error('Enter a name.');
+        if (!CONTACT_CATEGORIES[category]) throw new Error('Choose a category.');
+        const data = { name: name.trim(), phone: phone?.trim() || null, email: email?.trim() || null, note: note?.trim() || null, category };
+        return [
+          id
+            ? { type: 'update', collection: 'contacts', id, data }
+            : { type: 'set', collection: 'contacts', id: store.newId(), data: { ...data, createdAt: Date.now() } },
+        ];
+      }, id ? 'Contact updated' : 'Contact added'),
+    [guarded, store],
+  );
+
+  /** Removes the contact and its loan history. Account balances are left as they are (the money did move). */
+  const deleteContact = useCallback(
+    (id) =>
+      run(
+        [
+          { type: 'delete', collection: 'contacts', id },
+          ...ledger.filter((e) => e.contactId === id).map((e) => ({ type: 'delete', collection: 'ledger', id: e.id })),
+          ...transactions.filter((t) => t.contactId === id).map((t) => ({ type: 'update', collection: 'transactions', id: t.id, data: { contactId: null } })),
+        ],
+        'Contact deleted',
+      ),
+    [run, ledger, transactions],
+  );
+
+  /** Ledger balance ops undoing `previous` and applying `next` (either may be null), skipping deleted accounts. */
+  const rebalanceLedger = useCallback(
+    (previous, next) => {
+      const effects = [
+        ...(previous ? ledgerEffects(previous).map((e) => ({ ...e, delta: -e.delta })) : []),
+        ...(next ? ledgerEffects(next) : []),
+      ];
+      return balanceOps(effects, { skip: new Set(effects.map((e) => e.accountId).filter((id) => !accountsById[id])) });
+    },
+    [accountsById],
+  );
+
+  /**
+   * A loan entry with a contact: lent / borrowed / collected / repaid. With an account linked, that account's
+   * balance moves too; either way it is never counted as income or expense.
+   */
+  const saveLedgerEntry = useCallback(
+    ({ id, contactId, kind, amount, accountId, date, note }) =>
+      guarded(() => {
+        if (!contactsById[contactId]) throw new Error('Choose a contact.');
+        if (!LEDGER_KINDS[kind]) throw new Error('Choose what happened.');
+        if (accountId) requireAccount(accountId);
+        const next = { contactId, kind, amount: Number(amount), accountId: accountId || null, date, note: note?.trim() ?? '' };
+        const previous = id ? ledger.find((e) => e.id === id) : null;
+        return [
+          id
+            ? { type: 'update', collection: 'ledger', id, data: next }
+            : { type: 'set', collection: 'ledger', id: store.newId(), data: { ...next, createdAt: Date.now() } },
+          ...rebalanceLedger(previous, next),
+        ];
+      }, id ? 'Entry updated' : `${LEDGER_KINDS[kind]?.verb ?? 'Entry'} recorded`),
+    [guarded, contactsById, requireAccount, store, ledger, rebalanceLedger],
+  );
+
+  const deleteLedgerEntry = useCallback(
+    (entry) => run([{ type: 'delete', collection: 'ledger', id: entry.id }, ...rebalanceLedger(entry, null)], 'Entry deleted'),
+    [run, rebalanceLedger],
+  );
+
   /** Settles an item from the merged upcoming list, whichever kind it is. */
   const settleUpcoming = useCallback(
     (item) => (item.kind === 'bill' ? markBillPaid(item.source) : payCommitteeInstallment(item.source)),
@@ -549,14 +727,23 @@ export function FinanceProvider({ children }) {
       transactions,
       bills,
       committees,
+      contacts,
+      contactsById,
+      ledger,
       upcoming,
-      netWorth,
+      ...totals,
       toast,
       dismissToast: () => setToast(null),
       saveAccount,
       deleteAccount,
       saveTransaction,
+      clearTransaction,
+      saveTransfer,
       deleteTransaction,
+      saveContact,
+      deleteContact,
+      saveLedgerEntry,
+      deleteLedgerEntry,
       saveBill,
       deleteBill,
       markBillPaid,
@@ -570,8 +757,10 @@ export function FinanceProvider({ children }) {
       settleUpcoming,
     }),
     [
-      ready, accounts, accountsById, transactions, bills, committees, upcoming, netWorth, toast,
-      saveAccount, deleteAccount, saveTransaction, deleteTransaction, saveBill, deleteBill, markBillPaid, syncUtilityBills, fetchLatestUtilityBill, importScannedTransactions,
+      ready, accounts, accountsById, transactions, bills, committees, contacts, contactsById, ledger, upcoming, totals, toast,
+      saveAccount, deleteAccount, saveTransaction, clearTransaction, saveTransfer, deleteTransaction,
+      saveContact, deleteContact, saveLedgerEntry, deleteLedgerEntry,
+      saveBill, deleteBill, markBillPaid, syncUtilityBills, fetchLatestUtilityBill, importScannedTransactions,
       saveCommittee, deleteCommittee, payCommitteeInstallment, receiveCommitteePayout, settleUpcoming,
     ],
   );
