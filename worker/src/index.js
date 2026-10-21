@@ -50,6 +50,18 @@ function validate(body) {
   return { provider, idType, identifier, areaCode: areaCode === 'R' ? 'R' : 'U' };
 }
 
+const isTimeout = (error) => error?.name === 'TimeoutError' || error?.name === 'AbortError';
+
+/** PITC is sometimes slow to answer a cold first connection; one retry with a fresh session usually succeeds. */
+async function withRetryOnTimeout(task) {
+  try {
+    return await task();
+  } catch (error) {
+    if (!isTimeout(error)) throw error;
+    return task();
+  }
+}
+
 export default {
   async fetch(request, env) {
     const headers = cors(request, env);
@@ -61,12 +73,11 @@ export default {
     try {
       await verifyUser(request, env);
       const query = validate(await request.json().catch(() => null));
-      return json(await fetchPitcBill(query), 200, headers);
+      return json(await withRetryOnTimeout(() => fetchPitcBill(query)), 200, headers);
     } catch (error) {
       if (error instanceof BillError) return json({ error: error.message }, error.status, headers);
       console.error('bill inquiry failed', error);
-      const timedOut = error?.name === 'TimeoutError' || error?.name === 'AbortError';
-      return json({ error: timedOut ? 'The bill website took too long to answer. Try again.' : 'Bill lookup failed. Try again later.' }, 502, headers);
+      return json({ error: isTimeout(error) ? 'The bill website took too long to answer. Try again.' : 'Bill lookup failed. Try again later.' }, 502, headers);
     }
   },
 };
