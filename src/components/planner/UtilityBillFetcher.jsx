@@ -102,6 +102,12 @@ function FetchedBill({ outcome, meta, savedBill, wallet, onPay, paying, onDone }
         {isDemo && <StatusTag status="demo" />}
       </div>
 
+      {outcome.correctedFrom && (
+        <p className="rounded-xl bg-sky-500/10 px-3 py-2 text-xs text-sky-700 dark:text-sky-300">
+          This reference belongs to {meta.label}, not {UTILITY_PROVIDERS[outcome.correctedFrom]?.label} — switched for you.
+        </p>
+      )}
+
       <MeterOwnerCard bill={savedBill} owner={result.owner} reference={result.identifier} />
 
       {alreadyPaid ? (
@@ -234,17 +240,22 @@ export default function UtilityBillFetcher({ bill, onClose }) {
     if (isLiveProvider(form.provider) && !requireLogin('bills')) return;
     setFetching(true);
     try {
-      setOutcome(
-        await fetchLatestUtilityBill({
-          provider: form.provider,
-          idType: form.idType,
-          identifier: form.identifier,
-          areaCode: form.areaCode,
-          accountId: form.accountId,
-          title: form.title,
-          billId: bill?.id,
-        }),
-      );
+      const next = await fetchLatestUtilityBill({
+        provider: form.provider,
+        idType: form.idType,
+        identifier: form.identifier,
+        areaCode: form.areaCode,
+        accountId: form.accountId,
+        title: form.title,
+        billId: bill?.id,
+      });
+      // The API also checks the other companies; follow it when the bill belongs to a different one.
+      const foundUnder = next.result.provider;
+      if (foundUnder && foundUnder !== form.provider) {
+        setForm((prev) => ({ ...prev, provider: foundUnder }));
+        next.correctedFrom = form.provider;
+      }
+      setOutcome(next);
     } catch (err) {
       setError(err.message);
     } finally {

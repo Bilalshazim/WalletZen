@@ -450,8 +450,10 @@ export function FinanceProvider({ children }) {
    * Resolves to { result, billId, alreadyPaid }.
    */
   const fetchLatestUtilityBill = useCallback(
-    async ({ provider, idType, identifier, areaCode, accountId, title, billId }) => {
-      const result = await fetchUtilityBill({ provider, idType, identifier, areaCode });
+    async ({ provider: chosen, idType, identifier, areaCode, accountId, title, billId }) => {
+      const result = await fetchUtilityBill({ provider: chosen, idType, identifier, areaCode });
+      // A live lookup may find the consumer under a different company than the one picked.
+      const provider = result.provider ?? chosen;
       const consumerId = result.identifier;
       if (result.status === 'paid' || isMonthPaid(provider, consumerId, result.billingMonth)) {
         return { result, billId: null, alreadyPaid: true };

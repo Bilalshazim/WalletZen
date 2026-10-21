@@ -11,7 +11,7 @@
  */
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { ApiError } from './errors.js';
-import { DISCO_SLUGS, fetchPitcBill } from './pitc.js';
+import { DISCO_SLUGS, findPitcBill } from './pitc.js';
 import { scanImages, validateScan } from './scan.js';
 
 const GOOGLE_JWKS = createRemoteJWKSet(new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'));
@@ -56,19 +56,9 @@ function validateBillQuery(body) {
 
 const isTimeout = (error) => error?.name === 'TimeoutError' || error?.name === 'AbortError';
 
-/** PITC is sometimes slow to answer a cold first connection; one retry with a fresh session usually succeeds. */
-async function withRetryOnTimeout(task) {
-  try {
-    return await task();
-  } catch (error) {
-    if (!isTimeout(error)) throw error;
-    return task();
-  }
-}
-
 const ROUTES = {
   '/bills/inquiry': {
-    run: async (body) => withRetryOnTimeout(() => fetchPitcBill(validateBillQuery(body))),
+    run: async (body) => findPitcBill(validateBillQuery(body)),
     failure: (error) => (isTimeout(error) ? 'The bill website took too long to answer. Try again.' : 'Bill lookup failed. Try again later.'),
   },
   '/scan': {

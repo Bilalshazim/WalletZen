@@ -13,7 +13,7 @@ export const DISCO_SLUGS = {
 
 const BASE = 'https://bill.pitc.com.pk';
 const UA = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36';
-const TIMEOUT_MS = 20_000;
+const TIMEOUT_MS = 15_000;
 const MONTHS = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
 
 // ---------- HTTP session (cookie jar + ASP.NET form fields) ----------
@@ -90,19 +90,75 @@ export async function fetchPitcBill({ provider, idType, identifier, areaCode = '
     response = await session.postForm(page, { ...search, rbSearchByList: 'refno', ruCodeTextBox: areaCode === 'R' ? 'R' : '' });
   }
 
-  const location = response.headers.get('location');
-  if (!location || !/\/general\?/.test(location)) {
-    const body = await response.text();
-    assertNoCaptcha(body);
-    throw new ApiError(404, idType === 'consumer' ? 'No bill found for this customer ID.' : 'No bill found for this reference number. Check the digits and U/R.');
+  const billHtml = await followToBill(session, slug, response);
+  if (!billHtml) {
+    throw new ApiError(
+      404,
+      idType === 'consumer'
+        ? `No ${provider} bill found for this customer ID. Check the number and that ${provider} is the right company.`
+        : `No ${provider} bill found for this reference number. Check the 14 digits, U/R and that ${provider} is the right company.`,
+    );
+  }
+  return { ...parseBill(billHtml), provider, company: companyName(provider) };
+}
+
+/**
+ * Looks the bill up with the chosen company first; if it has no such consumer — or its PITC page is down — tries
+ * the other PITC companies (people often pick the wrong one). The result's `provider` says where it was found.
+ */
+export async function findPitcBill(query) {
+  let primaryError;
+  try {
+    // PITC is sometimes slow to answer a cold first connection: one retry for the chosen company only, so the
+    // worst case (retry + all other companies, ~3 requests each) stays under the free plan's 50 subrequests.
+    return await fetchPitcBill(query).catch((error) => {
+      if (isTimeout(error)) return fetchPitcBill(query);
+      throw error;
+    });
+  } catch (error) {
+    // A readable "not found" or an unreachable page can both mean "wrong company"; anything else (CAPTCHA,
+    // unreadable layout) is a real answer for this consumer.
+    if (error?.status !== 404 && error?.status !== 502 && !isTimeout(error)) throw error;
+    primaryError = error;
   }
 
-  const billResponse = await session.request(location);
-  const billHtml = billResponse.status === 200 ? await billResponse.text() : '';
-  // Unknown numbers bounce back to the search form instead of showing a bill.
-  if (!billHtml.includes('val-space--ref-no')) throw new ApiError(404, 'No bill found for this number. Check the digits and U/R.');
-  const bill = parseBill(billHtml);
-  return { ...bill, company: companyName(provider) };
+  const others = Object.keys(DISCO_SLUGS).filter((p) => p !== query.provider);
+  // First company that has the consumer wins; null when none does.
+  const found = await Promise.any(others.map((provider) => fetchPitcBill({ ...query, provider }))).catch(() => null);
+  if (found) return found;
+  if (primaryError.status !== 404) {
+    throw new ApiError(502, `The ${query.provider} bill website is not responding right now. Try again in a few minutes.`);
+  }
+  throw new ApiError(
+    404,
+    query.idType === 'consumer'
+      ? 'No bill found for this customer ID with any electricity company. Check the number.'
+      : 'No bill found for this reference number with any electricity company. Check the 14 digits and U/R.',
+  );
+}
+
+const isTimeout = (error) => error?.name === 'TimeoutError' || error?.name === 'AbortError';
+
+/** A bill page (any template) rather than the search form: it shows a due date and a payable amount. */
+const looksLikeBill = (html) => /DUE\s*DATE/i.test(html) && /PAYABLE/i.test(html) && !/name="searchTextBox"/.test(html);
+
+/**
+ * Follows the search result to the bill page, whatever template PITC routes this consumer to (domestic "general",
+ * commercial, industrial, …). Unknown numbers bounce back to the search form: resolves to null then.
+ */
+async function followToBill(session, slug, response) {
+  const searchPath = `/${slug}bill`;
+  for (let hop = 0; hop < 4; hop += 1) {
+    const location = response.headers.get('location');
+    if (!location) {
+      const html = response.status === 200 ? await response.text() : '';
+      assertNoCaptcha(html);
+      return looksLikeBill(html) ? html : null;
+    }
+    if (new URL(location, session.url).pathname.replace(/\/+$/, '').toLowerCase() === searchPath) return null;
+    response = await session.request(location);
+  }
+  return null;
 }
 
 const companyName = (provider) =>
@@ -164,13 +220,80 @@ function splitNameAddress(value) {
   return { name: (comma < 0 ? head : head.slice(0, comma)).trim(), fatherName: '', address: comma < 0 ? '' : head.slice(comma + 1).trim() };
 }
 
+/**
+ * Reads a PITC bill page. The current domestic template is read by its markup; any other template (commercial,
+ * industrial, older layouts) falls back to the printed English labels in the page text, which every PITC bill shares.
+ */
 export function parseBill(html) {
+  const bill = parseMarkup(html) ?? parseText(html);
+  if (bill) return bill;
+  // Log only which labels were present — never the bill's personal data.
+  const plain = pageText(html);
+  const labels = ['REFERENCE NO', 'BILL MONTH', 'DUE DATE', 'PAYABLE WITHIN DUE DATE', 'NAME & ADDRESS'].filter((l) => plain.includes(l));
+  console.warn('unreadable PITC bill page', { length: html.length, labels });
+  throw new ApiError(502, 'This bill page has a layout the app cannot read yet. Use “Open official bill” and enter the amount manually.');
+}
+
+const pageText = (html) => text(html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ')).toUpperCase();
+
+/** The value printed after an English label, skipping the Urdu caption and punctuation in between. */
+const after = (plain, label, valuePattern) => {
+  const re = new RegExp(`${escapeRe(label)}[^A-Z0-9]*?(${valuePattern})`);
+  return re.exec(plain)?.[1] ?? null;
+};
+
+/** Label-based reader for any PITC bill template (works on the page's visible text). */
+function parseText(html) {
+  const plain = pageText(html);
+  const reference = after(plain, 'REFERENCE NO', '\\d{2}\\s?\\d{5}\\s?\\d{7}')?.replace(/\s/g, '');
+  const billingMonth = monthKey(after(plain, 'BILL MONTH', '[A-Z]{3}\\s?-?\\s?\\d{2}'));
+  const dueDate = isoDate(after(plain, 'DUE DATE', '\\d{1,2}[\\s-]?[A-Z]{3}[\\s-]?\\d{2,4}'));
+  const payable = number(after(plain, 'PAYABLE WITHIN DUE DATE', '[\\d,]+'));
+  if (!reference || !billingMonth || !dueDate || payable == null) return null;
+
+  const paidAmount = number(after(plain, 'AMOUNT PAID', '[\\d,]+'));
+  const lateMatch = /PAYABLE AFTER DUE DATE[\s\S]*?(?:TILL|AFTER)[^0-9]*\d{1,2}[^0-9]{0,6}?\s([\d,]{3,})/.exec(plain);
+  const nameBlock = /NAME\s*&\s*ADDRESS[^A-Z0-9]*(.*?)\s(?:TRANSFORMER|FEEDER|SUB DIVISION|CATEGORY|METER NO|TARIFF|CONNECTED LOAD)\b/.exec(plain)?.[1] ?? '';
+  const history = [];
+  const historyText = /BILL HISTORY([\s\S]*?)(?:DEFERRED|BILL MONTH|$)/.exec(plain)?.[1] ?? '';
+  for (const m of historyText.matchAll(/\b([A-Z]{3})\s?(\d{2})\s+(?:[A-Z]{1,3}\s+)?(\d+)\s+(\d+)(?:\s+(\d+))?(?=\s+[A-Z]{3}\s?\d{2}\b|\s+MONTH\b|\s*$)/g)) {
+    const key = monthKey(`${m[1]}${m[2]}`);
+    if (key) history.push({ month: key, units: number(m[3]), bill: number(m[4]), payment: m[5] ? number(m[5]) : null, status: null });
+  }
+
+  return {
+    reference,
+    consumerId: after(plain, 'CONSUMER ID', '\\d{6,12}'),
+    billingMonth,
+    issueDate: isoDate(after(plain, 'ISSUE DATE', '\\d{1,2}[\\s-]?[A-Z]{3}[\\s-]?\\d{2,4}')),
+    dueDate,
+    amount: payable,
+    currentBill: number(after(plain, 'CURRENT BILL', '[\\d,]+')),
+    arrears: number(after(plain, 'ARREARS', '[\\d,]+')),
+    lateAmount: lateMatch ? number(lateMatch[1]) : null,
+    units: number(after(plain, 'UNITS', '\\d+')),
+    status: paidAmount != null && paidAmount >= payable ? 'paid' : 'unpaid',
+    paidAmount,
+    paidOn: isoDate(after(plain, 'PAYMENT DATE', '\\d{1,2}[\\s-]?[A-Z]{3}[\\s-]?\\d{2,4}')),
+    owner: {
+      // Page text is upper-cased for matching; names are title-cased back for display.
+      ...splitNameAddress(titleCase(nameBlock)),
+      meterNumber: after(plain, 'METER NO', '[A-Z0-9-]+(?:\\s[0-9]+)?') ?? '',
+      tariff: after(plain, 'TARIFF', '[A-Z]-?\\d[A-Z0-9()\\-]*') ?? '',
+      subDivision: titleCase(/SUB\s*DIVISION[^A-Z0-9]*([A-Z][A-Z .-]{1,40}?)\s(?:CATEGORY|STATUS|TARIFF|FEEDER)\b/.exec(plain)?.[1] ?? ''),
+    },
+    history: history.sort((a, b) => a.month.localeCompare(b.month)),
+  };
+}
+
+const titleCase = (value) => value.toLowerCase().replace(/\b([a-z])/g, (c) => c.toUpperCase()).replace(/\b(S|D|W|C)\/o\b/g, '$1/O');
+
+/** Reader for the current domestic ("general") template, by its CSS classes. Null when the markup doesn't match. */
+function parseMarkup(html) {
   const reference = labeled(html, 'REFERENCE NO').replace(/\s/g, '');
   const billingMonth = monthKey(match(html, /<span class="right-panel-en">BILL MONTH<\/span>[\s\S]*?<div class="right-main-val">([^<]*)<\/div>/));
   const dueDate = isoDate(match(html, /<div class="right-main-val right-main-val--due">([^<]*)<\/div>/));
-  if (!/^\d{14}$/.test(reference) || !billingMonth || !dueDate) {
-    throw new ApiError(502, 'The bill page could not be read (the website layout may have changed).');
-  }
+  if (!/^\d{14}$/.test(reference) || !billingMonth || !dueDate) return null;
 
   const payable = number(match(html, /<div class="payable-card-amount">([\s\S]*?)<\/div>/)) ?? charge(html, 'Grand Total');
   const paidAmount = number(match(html, /Amount Paid<\/span>\s*<span class="payable-card-paid-val">([^<]*)<\/span>/));

@@ -64,12 +64,15 @@ async function fetchLive({ provider, idType, identifier }) {
   if (!Number.isFinite(amount) || !ISO_DATE.test(body.dueDate ?? '')) {
     throw new Error('Bill service returned an unexpected response.');
   }
+  // The worker also searches the other companies when the chosen one has no such consumer.
+  const foundUnder = UTILITY_PROVIDERS[body.provider]?.officialBillUrl ? body.provider : provider;
   return {
+    provider: foundUnder,
     amount,
     dueDate: body.dueDate,
     status: body.status === 'paid' ? 'paid' : 'unpaid',
     billingMonth: body.billingMonth ?? body.dueDate.slice(0, 7),
-    company: body.company ?? UTILITY_PROVIDERS[provider].company,
+    company: body.company ?? UTILITY_PROVIDERS[foundUnder].company,
     owner: parseOwner(body),
     lateAmount: toNumber(body.lateAmount),
     currentBill: toNumber(body.currentBill),
