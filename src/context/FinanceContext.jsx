@@ -13,7 +13,7 @@ import {
   transactionEffects,
   upcomingItems,
 } from '../utils/analytics';
-import { BILLING_CYCLES, CONTACT_CATEGORIES, LEDGER_KINDS, UTILITY_PROVIDERS } from '../utils/constants';
+import { BILLING_CYCLES, CONTACT_CATEGORIES, DEBT_DIRECTIONS, LEDGER_KINDS, UTILITY_PROVIDERS } from '../utils/constants';
 import { addMonths, formatMoney, todayISO } from '../utils/formatters';
 
 const FinanceContext = createContext(null);
@@ -710,6 +710,39 @@ export function FinanceProvider({ children }) {
     [guarded, contactsById, requireAccount, store, ledger, rebalanceLedger],
   );
 
+  /**
+   * "Add receivable" / "Add payable": what someone owes you, or what you owe them. Picks an existing contact or
+   * creates one (`newContact`) in the same atomic write. No account moves unless one is chosen (money handed over now).
+   */
+  const saveDebt = useCallback(
+    ({ direction, contactId, newContact, amount, accountId, date, note }) =>
+      guarded(() => {
+        const meta = DEBT_DIRECTIONS[direction];
+        if (!meta) throw new Error('Choose receivable or payable.');
+        if (!(Number(amount) > 0)) throw new Error('Enter an amount.');
+        if (accountId) requireAccount(accountId);
+        const ops = [];
+        let id = contactId;
+        if (!id) {
+          const name = newContact?.name?.trim();
+          if (!name) throw new Error('Choose a person or type a new name.');
+          id = store.newId();
+          ops.push({
+            type: 'set',
+            collection: 'contacts',
+            id,
+            data: { name, phone: newContact.phone?.trim() || null, email: null, note: null, category: meta.category, createdAt: Date.now() },
+          });
+        } else if (!contactsById[id]) {
+          throw new Error('That contact no longer exists.');
+        }
+        const entry = { contactId: id, kind: meta.kind, amount: Number(amount), accountId: accountId || null, date, note: note?.trim() ?? '' };
+        ops.push({ type: 'set', collection: 'ledger', id: store.newId(), data: { ...entry, createdAt: Date.now() } }, ...rebalanceLedger(null, entry));
+        return ops;
+      }, direction === 'receivable' ? 'Receivable added' : 'Payable added'),
+    [guarded, requireAccount, store, contactsById, rebalanceLedger],
+  );
+
   const deleteLedgerEntry = useCallback(
     (entry) => run([{ type: 'delete', collection: 'ledger', id: entry.id }, ...rebalanceLedger(entry, null)], 'Entry deleted'),
     [run, rebalanceLedger],
@@ -745,6 +778,7 @@ export function FinanceProvider({ children }) {
       saveContact,
       deleteContact,
       saveLedgerEntry,
+      saveDebt,
       deleteLedgerEntry,
       saveBill,
       deleteBill,
@@ -761,7 +795,7 @@ export function FinanceProvider({ children }) {
     [
       ready, accounts, accountsById, transactions, bills, committees, contacts, contactsById, ledger, upcoming, totals, toast,
       saveAccount, deleteAccount, saveTransaction, clearTransaction, saveTransfer, deleteTransaction,
-      saveContact, deleteContact, saveLedgerEntry, deleteLedgerEntry,
+      saveContact, deleteContact, saveLedgerEntry, saveDebt, deleteLedgerEntry,
       saveBill, deleteBill, markBillPaid, syncUtilityBills, fetchLatestUtilityBill, importScannedTransactions,
       saveCommittee, deleteCommittee, payCommitteeInstallment, receiveCommitteePayout, settleUpcoming,
     ],

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Mail, PencilLine, Phone, Plus } from 'lucide-react';
+import { HandCoins, Mail, PencilLine, Phone, Plus } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import ContactFormModal from './ContactFormModal';
+import DebtEntryModal from './DebtEntryModal';
 import LedgerEntryModal from './LedgerEntryModal';
 import { useFinance } from '../../context/FinanceContext';
 import { ledgerOwedDelta } from '../../utils/analytics';
@@ -20,8 +21,9 @@ export function balanceLabel(balance) {
 function SheetBody({ contact }) {
   const { ledger, transactions, accountsById, contactBalances } = useFinance();
   const [editingContact, setEditingContact] = useState(false);
-  // `null` = closed, `{}` = new entry, otherwise the entry being edited.
+  // `null` = closed; `{ id… }` edits an entry; `{ kind, amount }` records a repayment.
   const [entry, setEntry] = useState(null);
+  const [adding, setAdding] = useState(null); // 'receivable' | 'payable' | null
 
   const rows = useMemo(() => {
     const own = ledger.filter((e) => e.contactId === contact.id);
@@ -68,7 +70,7 @@ function SheetBody({ contact }) {
       </div>
 
       <div className="rounded-2xl bg-ink/5 p-4">
-        <p className="text-xs text-ink/50">Loan balance</p>
+        <p className="text-xs text-ink/50">Balance</p>
         <p className={cx('text-2xl font-extrabold tabular-nums', status.className)}>{status.text}</p>
         {routine.count > 0 && (
           <p className="mt-1 text-[11px] text-ink/45">
@@ -77,14 +79,33 @@ function SheetBody({ contact }) {
         )}
       </div>
 
-      <Button icon={Plus} className="w-full" onClick={() => setEntry({})}>
-        Record loan or repayment
-      </Button>
+      <div className="grid grid-cols-2 gap-2">
+        {balance > 0 && (
+          <Button icon={HandCoins} onClick={() => setEntry({ kind: 'collected', amount: balance })}>
+            Received back
+          </Button>
+        )}
+        {balance < 0 && (
+          <Button icon={HandCoins} onClick={() => setEntry({ kind: 'repaid', amount: -balance })}>
+            Paid back
+          </Button>
+        )}
+        {balance >= 0 && (
+          <Button variant={balance > 0 ? 'secondary' : 'primary'} icon={Plus} onClick={() => setAdding('receivable')}>
+            {balance > 0 ? 'They owe more' : 'They owe me'}
+          </Button>
+        )}
+        {balance <= 0 && (
+          <Button variant={balance < 0 ? 'secondary' : 'primary'} icon={Plus} onClick={() => setAdding('payable')}>
+            {balance < 0 ? 'I owe more' : 'I owe them'}
+          </Button>
+        )}
+      </div>
 
       <section aria-label="Loan ledger">
-        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink/50">Ledger</p>
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink/50">History</p>
         {rows.length === 0 ? (
-          <p className="py-4 text-center text-sm text-ink/50">No loans recorded with {contact.name} yet.</p>
+          <p className="py-4 text-center text-sm text-ink/50">Nothing owed either way with {contact.name} yet.</p>
         ) : (
           <ul className="divide-y divide-ink/5">
             {rows.map((row) => {
@@ -96,7 +117,8 @@ function SheetBody({ contact }) {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-ink">{row.note || kind?.verb}</p>
                       <p className="truncate text-[11px] text-ink/45">
-                        {formatDate(row.date)} · {kind?.verb}
+                        {formatDate(row.date)}
+                        {row.note && ` · ${kind?.verb}`}
                         {row.accountId && ` · ${accountsById[row.accountId]?.name ?? 'deleted account'}`}
                       </p>
                     </div>
@@ -115,7 +137,15 @@ function SheetBody({ contact }) {
       </section>
 
       <ContactFormModal open={editingContact} contact={contact} onClose={() => setEditingContact(false)} />
-      <LedgerEntryModal open={Boolean(entry)} entry={entry?.id ? entry : null} contactId={contact.id} onClose={() => setEntry(null)} />
+      <LedgerEntryModal
+        open={Boolean(entry)}
+        entry={entry?.id ? entry : null}
+        contactId={contact.id}
+        defaultKind={entry?.kind}
+        defaultAmount={entry?.amount}
+        onClose={() => setEntry(null)}
+      />
+      <DebtEntryModal open={Boolean(adding)} direction={adding ?? 'receivable'} contactId={contact.id} onClose={() => setAdding(null)} />
     </div>
   );
 }

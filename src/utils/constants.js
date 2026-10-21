@@ -97,10 +97,16 @@ export const CONTACT_CATEGORIES = {
  * (+ = receivable grows), `cash` the effect on the linked account (if any). Neither counts as income or expense.
  */
 export const LEDGER_KINDS = {
-  lent: { label: 'I lent', verb: 'Lent', owed: 1, cash: -1 },
-  borrowed: { label: 'I borrowed', verb: 'Borrowed', owed: -1, cash: 1 },
-  collected: { label: 'They repaid me', verb: 'Received back', owed: -1, cash: 1 },
-  repaid: { label: 'I repaid them', verb: 'Paid back', owed: 1, cash: -1 },
+  lent: { label: 'They owe me', verb: 'Receivable added', owed: 1, cash: -1 },
+  borrowed: { label: 'I owe them', verb: 'Payable added', owed: -1, cash: 1 },
+  collected: { label: 'They paid me back', verb: 'Received back', owed: -1, cash: 1 },
+  repaid: { label: 'I paid them back', verb: 'Paid back', owed: 1, cash: -1 },
+};
+
+/** The two everyday ways to add a debt; each maps to a ledger kind and a default contact category. */
+export const DEBT_DIRECTIONS = {
+  receivable: { kind: 'lent', category: 'debtor', title: 'Add receivable', question: 'Who owes you?', settle: 'collected' },
+  payable: { kind: 'borrowed', category: 'creditor', title: 'Add payable', question: 'Who do you owe?', settle: 'repaid' },
 };
 
 export const CURRENCIES = ['PKR', 'USD', 'EUR'];

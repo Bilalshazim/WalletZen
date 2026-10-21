@@ -11,6 +11,7 @@ import NetWorthSummary from './components/dashboard/NetWorthSummary';
 import RealizedBalance from './components/dashboard/RealizedBalance';
 import StatsGrid from './components/dashboard/StatsGrid';
 import CashFlowChart from './components/dashboard/CashFlowChart';
+import DebtsOverview from './components/dashboard/DebtsOverview';
 import SpendingDonut from './components/dashboard/SpendingDonut';
 import AccountList from './components/accounts/AccountList';
 import PeopleDirectory from './components/people/PeopleDirectory';
@@ -86,6 +87,7 @@ export default function App() {
               <NetWorthSummary />
             </div>
             <StatsGrid />
+            <DebtsOverview onShowAll={() => navigate('accounts')} />
             <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
               <CashFlowChart />
               <SpendingDonut />

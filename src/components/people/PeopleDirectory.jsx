@@ -1,21 +1,13 @@
 import { useMemo, useState } from 'react';
-import { BookUser, HandCoins, Search, UserRoundPlus } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ChevronDown, Search, UserRoundPlus } from 'lucide-react';
 import Button from '../common/Button';
 import Card from '../common/Card';
-import EmptyState from '../common/EmptyState';
-import SegmentedControl from '../common/SegmentedControl';
 import ContactFormModal from './ContactFormModal';
 import ContactSheet, { balanceLabel } from './ContactSheet';
-import LedgerEntryModal from './LedgerEntryModal';
+import DebtEntryModal from './DebtEntryModal';
 import { useFinance } from '../../context/FinanceContext';
 import { CONTACT_CATEGORIES } from '../../utils/constants';
 import { cx, formatCurrency } from '../../utils/formatters';
-
-const FILTERS = [
-  { value: 'all', label: 'All' },
-  { value: 'receivable', label: 'Owe you' },
-  { value: 'payable', label: 'You owe' },
-];
 
 const initials = (name) =>
   name
@@ -24,119 +16,167 @@ const initials = (name) =>
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('');
 
-/** Contacts directory with debts (payables) and receivables, kept apart from routine income/expenses. */
+export function ContactAvatar({ contact }) {
+  const color = CONTACT_CATEGORIES[contact.category]?.color;
+  return (
+    <span
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold"
+      style={{ color, backgroundColor: `${color}1F` }}
+      aria-hidden="true"
+    >
+      {initials(contact.name)}
+    </span>
+  );
+}
+
+function PersonRow({ contact, balance, onOpen }) {
+  const status = balanceLabel(balance);
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onOpen(contact.id)}
+        className="flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition hover:bg-ink/5"
+      >
+        <ContactAvatar contact={contact} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-ink">{contact.name}</p>
+          <p className="truncate text-xs text-ink/45">{contact.phone || CONTACT_CATEGORIES[contact.category]?.label}</p>
+        </div>
+        <span className={cx('whitespace-nowrap text-right text-sm font-semibold tabular-nums', status.className)}>
+          {balance === 0 ? 'Settled' : formatCurrency(Math.abs(balance))}
+        </span>
+      </button>
+    </li>
+  );
+}
+
+function Section({ title, total, tone, people, balances, onOpen, empty }) {
+  return (
+    <section>
+      <div className="mb-1 flex items-baseline justify-between px-1">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-ink/50">{title}</h3>
+        <span className={cx('text-xs font-semibold tabular-nums', tone)}>{formatCurrency(total)}</span>
+      </div>
+      {people.length ? (
+        <ul className="-mx-2">
+          {people.map((c) => (
+            <PersonRow key={c.id} contact={c} balance={balances[c.id] ?? 0} onOpen={onOpen} />
+          ))}
+        </ul>
+      ) : (
+        <p className="rounded-2xl bg-ink/5 px-3 py-3 text-center text-xs text-ink/45">{empty}</p>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Receivables (who owes you) and payables (who you owe), per person, kept apart from routine income/expenses.
+ * Each person keeps a running balance; settled contacts stay in the directory below.
+ */
 export default function PeopleDirectory() {
   const { contacts, contactBalances, receivable, payable } = useFinance();
-  const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
-  const [adding, setAdding] = useState(false);
-  const [recording, setRecording] = useState(false);
+  const [adding, setAdding] = useState(null); // 'receivable' | 'payable' | null
+  const [newContact, setNewContact] = useState(false);
+  const [showSettled, setShowSettled] = useState(false);
   const [openId, setOpenId] = useState(null);
 
-  const visible = useMemo(() => {
+  const { owesYou, youOwe, settled } = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return contacts.filter((c) => {
-      const balance = contactBalances[c.id] ?? 0;
-      if (filter === 'receivable' && !(balance > 0)) return false;
-      if (filter === 'payable' && !(balance < 0)) return false;
-      return !q || [c.name, c.phone, c.email].some((text) => text?.toLowerCase().includes(q));
-    });
-  }, [contacts, contactBalances, filter, query]);
+    const matches = contacts.filter((c) => !q || [c.name, c.phone, c.email].some((text) => text?.toLowerCase().includes(q)));
+    const balance = (c) => contactBalances[c.id] ?? 0;
+    return {
+      owesYou: matches.filter((c) => balance(c) > 0).sort((a, b) => balance(b) - balance(a)),
+      youOwe: matches.filter((c) => balance(c) < 0).sort((a, b) => balance(a) - balance(b)),
+      settled: matches.filter((c) => balance(c) === 0),
+    };
+  }, [contacts, contactBalances, query]);
 
   return (
     <Card
-      title="Debts & receivables"
-      subtitle={`${contacts.length} contact${contacts.length === 1 ? '' : 's'} · loans tracked apart from daily spending`}
+      title="Receivables & payables"
+      subtitle="Money people owe you and you owe them — not counted as income or expenses"
       action={
-        <Button size="sm" icon={UserRoundPlus} onClick={() => setAdding(true)}>
-          Add
+        <Button size="sm" variant="secondary" icon={UserRoundPlus} onClick={() => setNewContact(true)} aria-label="Add contact">
+          <span className="hidden min-[380px]:inline">Contact</span>
         </Button>
       }
     >
       <div className="mb-4 grid grid-cols-2 gap-2">
-        <div className="rounded-2xl bg-ink/5 p-3">
-          <p className="text-xs text-ink/50">Owed to you</p>
-          <p className="mt-1 text-sm font-semibold tabular-nums text-accent">{formatCurrency(receivable)}</p>
-        </div>
-        <div className="rounded-2xl bg-ink/5 p-3">
-          <p className="text-xs text-ink/50">You owe</p>
-          <p className={cx('mt-1 text-sm font-semibold tabular-nums', payable > 0 ? 'text-orange-600 dark:text-orange-300' : 'text-ink')}>
-            {formatCurrency(payable)}
+        <button type="button" onClick={() => setAdding('receivable')} className="rounded-2xl border border-zen-lime/25 bg-zen-lime/10 p-3 text-left transition hover:bg-zen-lime/15">
+          <p className="flex items-center gap-1 text-xs text-ink/55">
+            <ArrowDownLeft size={13} className="text-accent" /> Receivable
           </p>
-        </div>
+          <p className="mt-1 text-base font-bold tabular-nums text-accent">{formatCurrency(receivable)}</p>
+          <p className="mt-1 text-[11px] font-medium text-accent">+ Add receivable</p>
+        </button>
+        <button type="button" onClick={() => setAdding('payable')} className="rounded-2xl border border-orange-500/25 bg-orange-500/10 p-3 text-left transition hover:bg-orange-500/15">
+          <p className="flex items-center gap-1 text-xs text-ink/55">
+            <ArrowUpRight size={13} className="text-orange-600 dark:text-orange-300" /> Payable
+          </p>
+          <p className="mt-1 text-base font-bold tabular-nums text-orange-600 dark:text-orange-300">{formatCurrency(payable)}</p>
+          <p className="mt-1 text-[11px] font-medium text-orange-600 dark:text-orange-300">+ Add payable</p>
+        </button>
       </div>
 
-      {contacts.length === 0 ? (
-        <EmptyState
-          icon={BookUser}
-          title="No contacts yet"
-          message="Add the people you pay, lend to or borrow from — each keeps a running balance."
-          action={
-            <Button icon={UserRoundPlus} onClick={() => setAdding(true)}>
-              Add first contact
-            </Button>
-          }
-        />
-      ) : (
-        <>
-          <Button variant="secondary" icon={HandCoins} className="mb-3 w-full" onClick={() => setRecording(true)}>
-            Record loan or repayment
-          </Button>
-          <div className="mb-3 space-y-2">
-            <SegmentedControl options={FILTERS} value={filter} onChange={setFilter} size="sm" />
-            {contacts.length > 5 && (
-              <label className="flex items-center gap-2 rounded-full border border-ink/10 bg-ink/5 px-4 py-2.5">
-                <Search size={16} className="text-ink/40" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search name, phone, email"
-                  className="w-full bg-transparent text-base text-ink outline-none placeholder:text-ink/30 sm:text-sm"
-                />
-              </label>
-            )}
-          </div>
-          {visible.length === 0 ? (
-            <p className="py-4 text-center text-sm text-ink/50">No contacts match.</p>
-          ) : (
-            <ul className="-mx-2">
-              {visible.map((contact) => {
-                const balance = contactBalances[contact.id] ?? 0;
-                const status = balanceLabel(balance);
-                const category = CONTACT_CATEGORIES[contact.category];
-                return (
-                  <li key={contact.id}>
-                    <button
-                      type="button"
-                      onClick={() => setOpenId(contact.id)}
-                      className="flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition hover:bg-ink/5"
-                    >
-                      <span
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold"
-                        style={{ color: category?.color, backgroundColor: `${category?.color}1F` }}
-                        aria-hidden="true"
-                      >
-                        {initials(contact.name)}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-ink">{contact.name}</p>
-                        <p className="truncate text-xs text-ink/45">
-                          {category?.label}
-                          {contact.phone && ` · ${contact.phone}`}
-                        </p>
-                      </div>
-                      <span className={cx('whitespace-nowrap text-right text-xs font-semibold tabular-nums', status.className)}>{status.text}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </>
+      {contacts.length > 8 && (
+        <label className="mb-3 flex items-center gap-2 rounded-full border border-ink/10 bg-ink/5 px-4 py-2.5">
+          <Search size={16} className="text-ink/40" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search name, phone, email"
+            className="w-full bg-transparent text-base text-ink outline-none placeholder:text-ink/30 sm:text-sm"
+          />
+        </label>
       )}
 
-      <ContactFormModal open={adding} onClose={() => setAdding(false)} />
-      <LedgerEntryModal open={recording} onClose={() => setRecording(false)} />
+      <div className="space-y-4">
+        <Section
+          title="They owe you"
+          total={receivable}
+          tone="text-accent"
+          people={owesYou}
+          balances={contactBalances}
+          onOpen={setOpenId}
+          empty="Nobody owes you anything. Tap “Add receivable” when you lend money or someone owes you."
+        />
+        <Section
+          title="You owe"
+          total={payable}
+          tone="text-orange-600 dark:text-orange-300"
+          people={youOwe}
+          balances={contactBalances}
+          onOpen={setOpenId}
+          empty="You don't owe anyone. Tap “Add payable” when you borrow or owe someone."
+        />
+
+        {settled.length > 0 && (
+          <section>
+            <button
+              type="button"
+              onClick={() => setShowSettled((v) => !v)}
+              aria-expanded={showSettled}
+              className="flex w-full items-center justify-between px-1 text-xs font-medium uppercase tracking-wide text-ink/50"
+            >
+              Settled & other contacts ({settled.length})
+              <ChevronDown size={14} className={cx('transition', showSettled && 'rotate-180')} />
+            </button>
+            {showSettled && (
+              <ul className="-mx-2 mt-1">
+                {settled.map((c) => (
+                  <PersonRow key={c.id} contact={c} balance={0} onOpen={setOpenId} />
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+      </div>
+
+      <DebtEntryModal open={Boolean(adding)} direction={adding ?? 'receivable'} onClose={() => setAdding(null)} />
+      <ContactFormModal open={newContact} onClose={() => setNewContact(false)} />
       <ContactSheet contactId={openId} onClose={() => setOpenId(null)} />
     </Card>
   );

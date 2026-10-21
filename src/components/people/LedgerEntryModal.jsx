@@ -7,14 +7,19 @@ import { useFinance } from '../../context/FinanceContext';
 import { ACCOUNT_TYPES, LEDGER_KINDS } from '../../utils/constants';
 import { cx, formatCurrency, todayISO } from '../../utils/formatters';
 
-function FormBody({ entry, contactId, defaultKind, onClose }) {
+function FormBody({ entry, contactId, defaultKind, defaultAmount, onClose }) {
   const { accounts, contacts, saveLedgerEntry, deleteLedgerEntry } = useFinance();
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(() => ({
     contactId: entry?.contactId ?? contactId ?? contacts[0]?.id ?? '',
     kind: entry?.kind ?? defaultKind,
-    amount: entry ? String(entry.amount) : '',
-    accountId: entry ? entry.accountId ?? '' : accounts.find((a) => a.type !== 'savings')?.id ?? '',
+    amount: entry ? String(entry.amount) : defaultAmount ? String(defaultAmount) : '',
+    // Repayments usually move cash, so suggest an account; a new debt is just recorded unless one is chosen.
+    accountId: entry
+      ? entry.accountId ?? ''
+      : ['collected', 'repaid'].includes(defaultKind)
+        ? accounts.find((a) => a.type !== 'savings')?.id ?? ''
+        : '',
     date: entry?.date ?? todayISO(),
     note: entry?.note ?? '',
   }));
@@ -96,12 +101,12 @@ function FormBody({ entry, contactId, defaultKind, onClose }) {
         </Field>
       </div>
 
-      <p className="text-xs text-ink/50">Loans are tracked separately — they never count as income or expenses.</p>
+      <p className="text-xs text-ink/50">Debts are tracked separately — they never count as income or expenses.</p>
 
       <div className="flex gap-3 pt-1">
         {entry && <Button variant="danger" size="icon" icon={Trash2} onClick={remove} aria-label="Delete entry" disabled={busy} />}
         <Button type="submit" size="lg" className="flex-1" loading={busy}>
-          {entry ? 'Save entry' : `Record: ${kind.label.toLowerCase()}`}
+          {entry ? 'Save entry' : `Save: ${kind.label.toLowerCase()}`}
         </Button>
       </div>
     </form>
@@ -109,10 +114,10 @@ function FormBody({ entry, contactId, defaultKind, onClose }) {
 }
 
 /** Records a loan given/taken or a repayment against a contact. Pass `entry` to edit. */
-export default function LedgerEntryModal({ open, onClose, entry, contactId, defaultKind = 'lent' }) {
+export default function LedgerEntryModal({ open, onClose, entry, contactId, defaultKind = 'lent', defaultAmount }) {
   return (
-    <Modal open={open} onClose={onClose} title={entry ? 'Edit loan entry' : 'Record loan or repayment'}>
-      <FormBody entry={entry} contactId={contactId} defaultKind={defaultKind} onClose={onClose} />
+    <Modal open={open} onClose={onClose} title={entry ? 'Edit entry' : LEDGER_KINDS[defaultKind]?.label ?? 'Record entry'}>
+      <FormBody entry={entry} contactId={contactId} defaultKind={defaultKind} defaultAmount={defaultAmount} onClose={onClose} />
     </Modal>
   );
 }
