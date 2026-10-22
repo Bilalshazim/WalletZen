@@ -122,22 +122,32 @@ export function biometricLabel() {
   return 'Device biometrics';
 }
 
-/** Registers this device's platform authenticator for the user. Must run from a user gesture (tap). */
+/**
+ * Registers this device's fingerprint / face unlock as a shortcut for the Quick Lock PIN. Must run from a user
+ * gesture (tap).
+ *
+ * Browsers only expose the biometric sensor through WebAuthn, so Android Chrome stores this as a passkey in
+ * Google Password Manager and iOS in iCloud Keychain. It is named after the app lock — not the user's Google
+ * account — so the system sheet reads "WalletZen PIN unlock", and `hints: ['client-device']` keeps the prompt on
+ * this device's own sensor instead of offering phones or security keys.
+ */
 export async function registerBiometric(user) {
+  const first = user.displayName?.split(' ')[0];
   const credential = await navigator.credentials.create({
     publicKey: {
       challenge: randomBytes(32),
-      rp: { name: 'WalletZen' }, // rp.id defaults to the current host (localhost / <user>.github.io)
+      rp: { name: 'WalletZen Quick Lock' }, // rp.id defaults to the current host (localhost / <user>.github.io)
       user: {
         id: textEncoder.encode(user.uid).slice(0, 64),
-        name: user.email ?? user.phoneNumber ?? 'WalletZen user',
-        displayName: user.displayName ?? 'WalletZen user',
+        name: first ? `WalletZen PIN unlock (${first})` : 'WalletZen PIN unlock',
+        displayName: 'WalletZen PIN unlock',
       },
       pubKeyCredParams: [
         { type: 'public-key', alg: -7 }, // ES256
         { type: 'public-key', alg: -257 }, // RS256
       ],
       authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' },
+      hints: ['client-device'],
       attestation: 'none',
       timeout: 60_000,
     },
@@ -147,7 +157,8 @@ export async function registerBiometric(user) {
 
 /**
  * Prompts Face ID / fingerprint for the stored credential. Resolves true only when the authenticator reports
- * user verification. Rejects with NotAllowedError when cancelled or when the browser requires a tap first.
+ * user verification. Rejects with NotAllowedError when cancelled, timed out, the passkey was deleted, or the
+ * browser requires a tap first — callers fall back to the PIN.
  */
 export async function verifyBiometric(biometric) {
   const assertion = await navigator.credentials.get({
@@ -155,6 +166,7 @@ export async function verifyBiometric(biometric) {
       challenge: randomBytes(32),
       allowCredentials: [{ type: 'public-key', id: fromBase64Url(biometric.credentialId), transports: ['internal'] }],
       userVerification: 'required',
+      hints: ['client-device'],
       timeout: 60_000,
     },
   });

@@ -172,10 +172,15 @@ export default function QuickLockSetup() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-ink">Enable {biometricLabel()} for Instant Access</p>
-              <p className="text-xs text-ink/55">Your PIN/pattern stays as the backup.</p>
+              <p className="text-xs text-ink/55">A shortcut for your {method === 'pin' ? 'PIN' : 'pattern'}, which always works as the backup.</p>
             </div>
             <Toggle checked={bioEnabled} onChange={toggleBiometric} disabled={busy} label={`Enable ${biometricLabel()}`} />
           </div>
+          <p className="text-[11px] leading-snug text-ink/45">
+            Browsers reach the fingerprint / face sensor through passkeys, so your phone may show it as a passkey (e.g. in
+            Google Password Manager) named “WalletZen PIN unlock”. It only unlocks WalletZen on this device — it is not your
+            Google password.
+          </p>
           <Button size="lg" icon={ShieldCheck} className="w-full" loading={busy} onClick={() => finish()}>
             Finish setup
           </Button>

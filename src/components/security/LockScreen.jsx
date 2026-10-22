@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Fingerprint, KeyRound, LogIn } from 'lucide-react';
-import Button from '../common/Button';
+import { Fingerprint, LogIn } from 'lucide-react';
 import PatternPad, { MIN_PATTERN_DOTS } from './PatternPad';
 import PinPad from './PinPad';
 import SecurityShell from './SecurityShell';
@@ -10,14 +9,14 @@ import { biometricLabel, getLockout, patternSecret, pinSecret } from '../../serv
 import { cx } from '../../utils/formatters';
 
 /**
- * Launch / resume lock: auto-prompts Face ID / fingerprint, falls back to the PIN or pattern, and finally to
- * signing in with the account (signed-in users) or removing the lock (guests).
+ * Launch / resume lock. The PIN (or pattern) pad is always shown; Face ID / fingerprint is a shortcut on top of it:
+ * prompted once on open, and if it is cancelled, fails or isn't available the user simply enters the PIN.
+ * Forgotten PIN → sign in again with the account (signed-in users) or remove the lock (guests).
  */
 export default function LockScreen() {
   const { user, isGuest } = useAuth();
   const { config, unlockWithSecret, unlockWithBiometric, forgotSecret } = useLock();
   const hasBiometric = Boolean(config?.biometric);
-  const [showPad, setShowPad] = useState(!hasBiometric);
   const [error, setError] = useState(0);
   const [message, setMessage] = useState(null);
   const [waitMs, setWaitMs] = useState(() => getLockout(user.uid).remainingMs);
@@ -33,14 +32,18 @@ export default function LockScreen() {
     return () => clearInterval(timer);
   }, [waitMs, user.uid]);
 
-  const tryBiometric = async () => {
+  const secretName = isPin ? 'PIN' : 'pattern';
+
+  const tryBiometric = async ({ automatic = false } = {}) => {
     setBioBusy(true);
     setMessage(null);
     try {
-      if (!(await unlockWithBiometric())) setMessage(`${label} didn’t verify. Use your ${isPin ? 'PIN' : 'pattern'} instead.`);
+      if (!(await unlockWithBiometric())) setMessage(`${label} didn’t verify — enter your ${secretName}.`);
     } catch (err) {
-      // NotAllowedError = cancelled, timed out, or (iOS Safari) a tap is required first — the button stays available.
-      if (err.name !== 'NotAllowedError') setMessage(`${label} unavailable: ${err.message}`);
+      // NotAllowedError = cancelled, timed out, passkey removed, or a tap is required first (automatic prompt).
+      // Either way the pad is right there; only explain when the user asked for biometrics themselves.
+      if (err.name !== 'NotAllowedError') setMessage(`${label} isn’t available right now — enter your ${secretName}.`);
+      else if (!automatic) setMessage(`${label} cancelled — enter your ${secretName}.`);
     } finally {
       setBioBusy(false);
     }
@@ -50,7 +53,7 @@ export default function LockScreen() {
   useEffect(() => {
     if (hasBiometric && !prompted.current) {
       prompted.current = true;
-      tryBiometric();
+      tryBiometric({ automatic: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasBiometric]);
@@ -86,11 +89,6 @@ export default function LockScreen() {
       subtitle={first && !isGuest ? `Welcome back, ${first}` : undefined}
       footer={
         <>
-          {hasBiometric && showPad && (
-            <button type="button" onClick={tryBiometric} className="inline-flex items-center gap-1.5 font-medium text-accent">
-              <Fingerprint size={15} /> Use {label}
-            </button>
-          )}
           <button type="button" onClick={forgot} className="inline-flex items-center gap-1.5 text-ink/55 hover:text-ink">
             {isGuest ? (
               `Forgot ${isPin ? 'PIN' : 'pattern'}? Remove lock`
@@ -103,23 +101,20 @@ export default function LockScreen() {
         </>
       }
     >
-      {!showPad ? (
-        <div className="flex w-full flex-col items-center gap-4">
-          <button
-            type="button"
-            onClick={tryBiometric}
-            disabled={bioBusy}
-            aria-label={`Unlock with ${label}`}
-            className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-zen-lime to-zen-emerald text-zen-950 shadow-lg shadow-zen-lime/30 transition active:scale-95 disabled:opacity-70"
-          >
-            <Fingerprint size={44} className={cx(bioBusy && 'animate-pulse')} />
-          </button>
-          <p className="text-sm text-ink/60">{bioBusy ? `Waiting for ${label}…` : `Tap to unlock with ${label}`}</p>
-          <Button variant="secondary" icon={KeyRound} onClick={() => setShowPad(true)}>
-            Use {isPin ? '4-Digit PIN' : 'Pattern'}
-          </Button>
-        </div>
-      ) : isPin ? (
+      {hasBiometric && (
+        <button
+          type="button"
+          onClick={() => tryBiometric()}
+          disabled={bioBusy}
+          className="inline-flex items-center gap-2 rounded-full border border-zen-lime/30 bg-zen-lime/10 px-4 py-2 text-sm font-medium text-accent transition hover:bg-zen-lime/15 active:scale-95 disabled:opacity-70"
+        >
+          <Fingerprint size={18} className={cx(bioBusy && 'animate-pulse')} />
+          {bioBusy ? `Waiting for ${label}…` : `Use ${label}`}
+        </button>
+      )}
+      <p className="-mt-2 text-xs text-ink/50">{hasBiometric ? `or enter your ${secretName}` : `Enter your ${secretName}`}</p>
+
+      {isPin ? (
         <PinPad onComplete={onSecret} error={error} disabled={waitMs > 0} />
       ) : (
         <PatternPad onComplete={onSecret} error={error} disabled={waitMs > 0} />
