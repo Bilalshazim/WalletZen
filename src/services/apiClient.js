@@ -30,7 +30,7 @@ export async function apiPost(path, body, { signal } = {}) {
     });
   } catch (error) {
     if (error?.name === 'AbortError') throw error;
-    throw new ApiError('Network error — are you online?', 0);
+    throw new ApiError('Network error. Are you online?', 0);
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new ApiError(data.error || `Request failed (${response.status})`, response.status);

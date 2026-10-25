@@ -38,12 +38,12 @@ export default function LockScreen() {
     setBioBusy(true);
     setMessage(null);
     try {
-      if (!(await unlockWithBiometric())) setMessage(`${label} didn’t verify — enter your ${secretName}.`);
+      if (!(await unlockWithBiometric())) setMessage(`${label} didn’t verify. Enter your ${secretName}.`);
     } catch (err) {
       // NotAllowedError = cancelled, timed out, passkey removed, or a tap is required first (automatic prompt).
       // Either way the pad is right there; only explain when the user asked for biometrics themselves.
-      if (err.name !== 'NotAllowedError') setMessage(`${label} isn’t available right now — enter your ${secretName}.`);
-      else if (!automatic) setMessage(`${label} cancelled — enter your ${secretName}.`);
+      if (err.name !== 'NotAllowedError') setMessage(`${label} isn’t available right now. Enter your ${secretName}.`);
+      else if (!automatic) setMessage(`${label} cancelled. Enter your ${secretName}.`);
     } finally {
       setBioBusy(false);
     }
@@ -108,7 +108,7 @@ export default function LockScreen() {
           disabled={bioBusy}
           className="inline-flex items-center gap-2 rounded-full border border-zen-lime/30 bg-zen-lime/10 px-4 py-2 text-sm font-medium text-accent transition hover:bg-zen-lime/15 active:scale-95 disabled:opacity-70"
         >
-          <Fingerprint size={18} className={cx(bioBusy && 'animate-pulse')} />
+          <Fingerprint size={18} />
           {bioBusy ? `Waiting for ${label}…` : `Use ${label}`}
         </button>
       )}

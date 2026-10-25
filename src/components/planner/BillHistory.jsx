@@ -13,7 +13,7 @@ export default function BillHistory({ history }) {
   const visible = expanded ? rows : rows.slice(0, COLLAPSED);
 
   return (
-    <section className="rounded-2xl border border-ink/10 p-3" aria-label="Bill history">
+    <section className="rounded-xl border border-ink/10 p-3" aria-label="Bill history">
       <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink/50">Previous bills</p>
       <ul className="divide-y divide-ink/5">
         {visible.map((row) => {

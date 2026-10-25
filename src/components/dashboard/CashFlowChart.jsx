@@ -17,7 +17,7 @@ const AXIS = { stroke: 'rgb(var(--ink) / 0.45)', fontSize: 11, tickLine: false, 
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-2xl border border-ink/10 bg-surface/95 px-3 py-2 text-xs shadow-xl backdrop-blur-md">
+    <div className="rounded-lg border border-ink/10 bg-surface px-3 py-2 text-xs shadow-md">
       <p className="mb-1 font-medium text-ink/60">{formatMonth(label)}</p>
       {payload.map((entry) => (
         <p key={entry.dataKey} className="flex items-center gap-2 text-ink">

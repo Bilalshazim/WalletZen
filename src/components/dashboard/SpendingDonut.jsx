@@ -11,7 +11,7 @@ function SliceTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const { label, value, color } = payload[0].payload;
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-ink/10 bg-surface/95 px-3 py-2 text-xs text-ink shadow-xl">
+    <div className="flex items-center gap-2 rounded-lg border border-ink/10 bg-surface px-3 py-2 text-xs text-ink shadow-md">
       <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
       {label}
       <span className="pl-2 font-semibold tabular-nums">{formatCurrency(value)}</span>

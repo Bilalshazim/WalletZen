@@ -113,7 +113,7 @@ function EmailMethod({ setError }) {
         <div>
           <p className="font-semibold text-ink">Check your inbox</p>
           <p className="mt-1 text-sm text-ink/60">
-            We sent a secure sign-in link to <b className="text-ink">{sentTo}</b>. Open it on this device to finish — no password needed.
+            We sent a secure sign-in link to <b className="text-ink">{sentTo}</b>. Open it on this device to finish. No password needed.
           </p>
         </div>
         <div className="flex flex-col gap-2">
@@ -215,7 +215,7 @@ function PhoneMethod({ setError }) {
         <form onSubmit={send} className="space-y-3">
           <Field label="Mobile number">
             <div className="flex gap-2">
-              <span className="flex shrink-0 items-center rounded-2xl border border-ink/10 bg-ink/5 px-3 text-sm font-semibold text-ink/70">🇵🇰 +92</span>
+              <span className="flex shrink-0 items-center rounded-xl border border-ink/10 bg-ink/5 px-3 text-sm font-semibold text-ink/70">🇵🇰 +92</span>
               <Input
                 type="tel"
                 inputMode="tel"
@@ -252,10 +252,10 @@ function LoginBody() {
       <div className="text-center">
         <BrandLogo className="mx-auto h-14 w-auto" />
         <h3 className="mt-3 text-xl font-bold text-ink">Login to Unlock Cloud Sync</h3>
-        <p className="mt-1 text-sm text-ink/60">You're using WalletZen as a guest — your data is only on this device.</p>
+        <p className="mt-1 text-sm text-ink/60">You're using WalletZen as a guest, so your data lives only on this device.</p>
       </div>
 
-      <ul className="space-y-2 rounded-2xl border border-ink/10 bg-ink/5 p-3 text-sm text-ink/75">
+      <ul className="space-y-2 rounded-xl border border-ink/10 bg-ink/5 p-3 text-sm text-ink/75">
         {reason && (
           <li className="flex items-start gap-2 font-medium text-ink">
             <reason.icon size={16} className="mt-0.5 shrink-0 text-accent" /> {reason.text}
@@ -275,7 +275,7 @@ function LoginBody() {
       {canSignIn ? (
         <>
           {pending > 0 && (
-            <p className="rounded-2xl bg-zen-lime/10 px-4 py-2.5 text-xs text-ink/75">
+            <p className="rounded-xl bg-zen-lime/10 px-4 py-2.5 text-xs text-ink/75">
               Your {pending} guest item{pending === 1 ? '' : 's'} will be moved into your account automatically.
             </p>
           )}
@@ -303,7 +303,7 @@ function LoginBody() {
           </p>
         </>
       ) : (
-        <p className="flex items-start gap-2 rounded-2xl bg-ink/5 px-4 py-3 text-xs text-ink/60">
+        <p className="flex items-start gap-2 rounded-xl bg-ink/5 px-4 py-3 text-xs text-ink/60">
           <CloudOff size={15} className="mt-px shrink-0" />
           <span>
             Cloud sign-in isn't configured in this build. Add your Firebase keys to <code>.env.local</code> to enable Google, email and

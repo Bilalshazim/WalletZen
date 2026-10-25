@@ -6,11 +6,11 @@ import { cx } from '../../utils/formatters';
  */
 export default function FitAmount({ children, className }) {
   const length = String(children).length;
-  // ~0.62em per glyph for extrabold tabular digits in Plus Jakarta Sans.
+  // ~0.62em per glyph for semibold tabular digits in Fraunces.
   const fit = `${(100 / (length * 0.62)).toFixed(1)}cqi`;
   return (
     <p
-      className={cx('whitespace-nowrap font-extrabold leading-tight tracking-tight tabular-nums [--max:1.5rem] sm:[--max:2.25rem]', className)}
+      className={cx('whitespace-nowrap font-display font-semibold leading-tight tracking-tight tabular-nums [--max:1.5rem] sm:[--max:2.25rem]', className)}
       style={{ fontSize: `min(var(--max), ${fit})` }}
     >
       {children}

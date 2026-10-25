@@ -32,7 +32,7 @@ export default function BulkScreenshotScanner() {
     const images = [...list].filter((f) => f.type.startsWith('image/'));
     setFiles((prev) => {
       const room = MAX_IMAGES - prev.length;
-      if (images.length > room) setError(`Only ${MAX_IMAGES} images per batch — ${images.length - Math.max(room, 0)} were skipped.`);
+      if (images.length > room) setError(`Only ${MAX_IMAGES} images per batch. ${images.length - Math.max(room, 0)} were skipped.`);
       return [...prev, ...images.slice(0, Math.max(room, 0)).map((file) => ({ id: `${file.name}-${file.lastModified}-${Math.random()}`, file, url: URL.createObjectURL(file) }))];
     });
   };
@@ -76,7 +76,7 @@ export default function BulkScreenshotScanner() {
   const pct = progress ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <Card title="Scan screenshots & receipts" subtitle={`Bank / wallet alerts, receipts — up to ${MAX_IMAGES} at once`}>
+    <Card title="Scan screenshots & receipts" subtitle={`Bank and wallet alerts or receipts, up to ${MAX_IMAGES} at once`}>
       <div className="grid grid-cols-2 gap-2">
         <Button variant="secondary" icon={ImagePlus} onClick={pick(galleryRef)} disabled={busy || !isScannerConfigured}>
           Gallery
@@ -144,7 +144,7 @@ export default function BulkScreenshotScanner() {
             </button>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-ink/10">
-            <div className="h-full rounded-full bg-gradient-to-r from-zen-lime to-zen-emerald transition-all" style={{ width: `${pct}%` }} />
+            <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
           </div>
         </div>
       )}
@@ -158,13 +158,13 @@ export default function BulkScreenshotScanner() {
           </Button>
         </div>
       ) : (
-        <p className="mt-4 rounded-2xl bg-ink/5 px-4 py-3 text-xs text-ink/55">
-          Scanning is unavailable in this build — it needs Firebase sign-in and the WalletZen API (<code>VITE_API_URL</code>).
+        <p className="mt-4 rounded-xl bg-ink/5 px-4 py-3 text-xs text-ink/55">
+          Scanning is unavailable in this build. It needs Firebase sign-in and the WalletZen API (<code>VITE_API_URL</code>).
         </p>
       )}
       <p className="mt-3 flex items-start gap-1.5 text-[11px] text-ink/40">
         <ShieldCheck size={13} className="mt-px shrink-0" />
-        Images are downscaled on your device and read by WalletZen's server using Cloudflare Workers AI — not stored. Nothing is saved until you
+        Images are downscaled on your device and read by WalletZen's server using Cloudflare Workers AI, and are never stored. Nothing is saved until you
         confirm.
       </p>
 

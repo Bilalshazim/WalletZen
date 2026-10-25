@@ -11,7 +11,7 @@ import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../utils/constants';
 import { cx, formatCurrency, formatDate, todayISO } from '../../utils/formatters';
 
 const TYPE_OPTIONS = [
-  { value: 'expense', label: 'Debit', activeClass: 'bg-rose-500/90 text-white shadow-md' },
+  { value: 'expense', label: 'Debit', activeClass: 'bg-rose-500/15 text-rose-700 ring-1 ring-rose-500/25 dark:text-rose-300' },
   { value: 'income', label: 'Credit' },
 ];
 
@@ -81,7 +81,7 @@ function RowEditor({ row, preview, duplicate, accounts, onChange }) {
   const categories = row.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
   return (
-    <li className={cx('rounded-2xl border p-3 transition', row.include ? 'border-ink/10 bg-ink/5' : 'border-transparent bg-ink/[0.02] opacity-60')}>
+    <li className={cx('rounded-xl border p-3 transition', row.include ? 'border-ink/10 bg-ink/5' : 'border-transparent bg-ink/[0.02] opacity-60')}>
       <div className="flex gap-3">
         <a href={preview} target="_blank" rel="noreferrer" className="shrink-0">
           <img src={preview} alt={`Screenshot ${row.imageIndex + 1}`} className="h-20 w-14 rounded-xl border border-ink/10 object-cover object-top" />
@@ -186,7 +186,7 @@ function ReviewBody({ extracted, previews, failures, onClose, onImported }) {
   return (
     <div className="space-y-4">
       {failures.length > 0 && (
-        <p className="rounded-2xl bg-amber-400/10 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-300">
+        <p className="rounded-xl bg-amber-400/10 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-300">
           {failures.map((f) => `Images ${f.from + 1}–${f.to + 1}: ${f.reason}`).join(' · ')}
         </p>
       )}
@@ -202,7 +202,7 @@ function ReviewBody({ extracted, previews, failures, onClose, onImported }) {
       )}
 
       {balanceSyncs.length > 0 && (
-        <div className="space-y-2 rounded-2xl border border-ink/10 p-3">
+        <div className="space-y-2 rounded-xl border border-ink/10 p-3">
           <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-ink/50">
             <Scale size={14} /> Sync remaining balance from screenshots
           </p>
@@ -223,7 +223,7 @@ function ReviewBody({ extracted, previews, failures, onClose, onImported }) {
         </div>
       )}
 
-      <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-ink/10 bg-surface/95 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl sm:pb-5">
+      <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-ink/10 bg-surface px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 sm:pb-5">
         <p className="mb-2 text-xs text-ink/60">
           {selected.length} selected · <span className="text-accent">+{formatCurrency(totals.income)}</span> ·{' '}
           <span>−{formatCurrency(totals.expense)}</span>

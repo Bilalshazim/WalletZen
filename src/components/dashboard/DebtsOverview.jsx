@@ -12,7 +12,7 @@ const people = (n) => `${n} ${n === 1 ? 'person' : 'people'}`;
 
 function Side({ title, icon: Icon, total, tone, people, onOpen, empty }) {
   return (
-    <div className="min-w-0 rounded-2xl bg-ink/5 p-3">
+    <div className="min-w-0 rounded-xl bg-ink/5 p-3">
       <p className="flex items-center gap-1 text-xs text-ink/55">
         <Icon size={13} className={tone} /> {title}
       </p>

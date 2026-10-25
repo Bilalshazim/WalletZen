@@ -6,7 +6,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Theme tokens (defined in index.css) — `ink` is foreground, `surface` is solid panels.
+        // Theme tokens (defined in index.css): `ink` is foreground, `surface` is solid panels.
         ink: 'rgb(var(--ink) / <alpha-value>)',
         surface: 'rgb(var(--surface) / <alpha-value>)',
         accent: 'rgb(var(--accent) / <alpha-value>)',
@@ -21,6 +21,8 @@ export default {
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        // Editorial serif for headings and money figures; the sans stays on UI text.
+        display: ['Fraunces', 'Georgia', 'serif'],
       },
       keyframes: {
         'fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },

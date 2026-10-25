@@ -7,30 +7,30 @@
   :root {
     color-scheme: light;
     --ink: 13 28 59;
-    --surface: 255 255 255;
+    --surface: 252 253 251;
     --accent: 77 124 15;
     --trend: 101 163 13;
     --canvas-from: #f6faf7;
     --canvas-via: #eef5f1;
     --canvas-to: #e4ede8;
-    --glass-bg: rgb(255 255 255 / 0.7);
-    --glass-border: rgb(13 28 59 / 0.08);
-    --glass-shadow: 0 10px 30px -12px rgb(13 28 59 / 0.18);
+    --panel-bg: rgb(252 253 251);
+    --panel-border: rgb(13 28 59 / 0.08);
+    --panel-shadow: 0 1px 2px rgb(13 28 59 / 0.04), 0 4px 12px -6px rgb(13 28 59 / 0.08);
   }
 
-  /* Dark theme: deep emerald to pitch black with white glass. */
+  /* Dark theme: deep emerald canvas with slightly lifted solid panels. */
   :root[data-theme='dark'] {
     color-scheme: dark;
-    --ink: 255 255 255;
-    --surface: 10 26 18;
+    --ink: 236 242 238;
+    --surface: 14 32 23;
     --accent: 132 204 22;
     --trend: 132 204 22;
     --canvas-from: #0a1a12;
     --canvas-via: #0d2218;
     --canvas-to: #050c08;
-    --glass-bg: rgb(255 255 255 / 0.05);
-    --glass-border: rgb(255 255 255 / 0.1);
-    --glass-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --panel-bg: rgb(14 32 23);
+    --panel-border: rgb(236 242 238 / 0.08);
+    --panel-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
   }
 
   html {
@@ -60,14 +60,28 @@
 }
 
 @layer components {
-  .glass {
-    background-color: var(--glass-bg);
-    border-color: var(--glass-border);
-    box-shadow: var(--glass-shadow);
+  .panel {
+    background-color: var(--panel-bg);
+    border-color: var(--panel-border);
+    box-shadow: var(--panel-shadow);
+  }
+
+  /* Placeholder block for skeleton loaders; a slow opacity breathe, no shimmer sweep. */
+  .skeleton {
+    @apply rounded-md bg-ink/[0.07];
+    animation: skeleton-breathe 1.4s ease-in-out infinite;
+  }
+
+  @keyframes skeleton-breathe {
+    50% { opacity: 0.55; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton { animation: none; }
   }
 }
 
-/* Recharts focus outlines clash with the glass cards. */
+/* Recharts focus outlines clash with the panels. */
 .recharts-wrapper *:focus {
   outline: none;
 }

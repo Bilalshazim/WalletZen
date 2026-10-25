@@ -16,7 +16,7 @@ export default function Header({ onOpenSettings }) {
       <BrandLogo className="h-9 w-auto shrink-0 min-[380px]:h-10" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs text-ink/50">{greeting()},</p>
-        <h1 className="truncate text-lg font-semibold text-ink">{name}</h1>
+        <h1 className="truncate font-display text-xl font-semibold leading-tight text-ink">{name}</h1>
       </div>
 
       {isGuest ? (
@@ -24,7 +24,7 @@ export default function Header({ onOpenSettings }) {
         <button
           type="button"
           onClick={openLogin}
-          title={canSignIn ? 'Guest Mode — tap to sign in and enable cloud sync' : 'Guest Mode — data stays on this device'}
+          title={canSignIn ? 'Guest Mode. Tap to sign in and turn on cloud sync.' : 'Guest Mode. Your data stays on this device.'}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 text-[11px] font-medium text-amber-700 transition hover:bg-amber-400/20 dark:text-amber-300"
         >
           <CloudOff size={13} />

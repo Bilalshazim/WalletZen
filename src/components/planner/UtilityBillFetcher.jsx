@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { CheckCircle2, CloudDownload, ExternalLink, Loader2, PencilLine, Trash2, Wallet } from 'lucide-react';
+import { CheckCircle2, CloudDownload, ExternalLink, PencilLine, Trash2, Wallet } from 'lucide-react';
 import Button from '../common/Button';
 import IconCircle from '../common/IconCircle';
+import Skeleton from '../common/Skeleton';
 import SegmentedControl from '../common/SegmentedControl';
 import { Field, Input, Select } from '../common/FormField';
 import BillHistory from './BillHistory';
@@ -44,7 +45,7 @@ function OfficialBillLink({ meta, reference, areaCode }) {
       </button>
       {opened && (
         <span className="text-[11px] text-ink/50">
-          Reference copied — paste it there and choose <b>{areaCode}</b> ({AREA_CODES[areaCode]}).
+          Reference copied. Paste it there and choose <b>{areaCode}</b> ({AREA_CODES[areaCode]}).
         </span>
       )}
     </div>
@@ -67,7 +68,7 @@ function ExactAmountForm({ bill, onSaved }) {
   };
 
   return (
-    <div className="space-y-2 rounded-2xl border border-sky-500/20 bg-sky-500/5 p-3">
+    <div className="space-y-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3">
       <p className="text-xs font-medium text-ink/70">Enter the exact amount from your bill</p>
       <div className="grid grid-cols-2 gap-2">
         <Input type="number" inputMode="decimal" min="1" step="any" placeholder="Amount (Rs)" value={amount} onChange={(e) => setAmount(e.target.value)} className="py-2" aria-label="Exact amount" />
@@ -89,7 +90,7 @@ function FetchedBill({ outcome, meta, savedBill, wallet, onPay, paying, onDone }
   const dueDate = savedBill?.dueDate ?? result.dueDate;
 
   return (
-    <div className="animate-sheet-up space-y-4 rounded-3xl border border-ink/10 bg-ink/5 p-4" aria-live="polite">
+    <div className="animate-sheet-up space-y-4 rounded-xl border border-ink/10 bg-ink/5 p-4" aria-live="polite">
       <div className="flex items-center gap-3">
         <IconCircle icon={meta.icon} color="#C98500" />
         <div className="min-w-0 flex-1">
@@ -104,7 +105,7 @@ function FetchedBill({ outcome, meta, savedBill, wallet, onPay, paying, onDone }
 
       {outcome.correctedFrom && (
         <p className="rounded-xl bg-sky-500/10 px-3 py-2 text-xs text-sky-700 dark:text-sky-300">
-          This reference belongs to {meta.label}, not {UTILITY_PROVIDERS[outcome.correctedFrom]?.label} — switched for you.
+          This reference belongs to {meta.label}, not {UTILITY_PROVIDERS[outcome.correctedFrom]?.label}, so we switched it for you.
         </p>
       )}
 
@@ -114,7 +115,7 @@ function FetchedBill({ outcome, meta, savedBill, wallet, onPay, paying, onDone }
         <div className="space-y-1">
           <p className="flex items-center gap-2 text-sm text-ink/70">
             <CheckCircle2 size={16} className="shrink-0 text-accent" />
-            No unpaid bill — the {monthLabel(result.billingMonth)} bill is already paid.
+            No unpaid bill. The {monthLabel(result.billingMonth)} bill is already paid.
           </p>
           {result.source === 'live' && (
             <p className="pl-6 text-xs text-ink/55">
@@ -360,7 +361,7 @@ export default function UtilityBillFetcher({ bill, onClose }) {
             }}
           />
           {idSpec.areaCode && (
-            <div role="radiogroup" aria-label="Area code" className="flex shrink-0 rounded-2xl border border-ink/10 bg-ink/5 p-1">
+            <div role="radiogroup" aria-label="Area code" className="flex shrink-0 rounded-xl border border-ink/10 bg-ink/5 p-1">
               {AREA_OPTIONS.map((option) => (
                 <button
                   key={option.value}
@@ -369,8 +370,8 @@ export default function UtilityBillFetcher({ bill, onClose }) {
                   aria-checked={form.areaCode === option.value}
                   title={option.title}
                   onClick={() => setForm((prev) => ({ ...prev, areaCode: option.value }))}
-                  className={`w-9 rounded-xl text-sm font-bold transition ${
-                    form.areaCode === option.value ? 'bg-gradient-to-r from-zen-lime to-zen-emerald text-zen-950' : 'text-ink/60 hover:text-ink'
+                  className={`w-9 rounded-lg text-sm font-bold transition ${
+                    form.areaCode === option.value ? 'bg-surface text-ink shadow-sm ring-1 ring-ink/10' : 'text-ink/60 hover:text-ink'
                   }`}
                 >
                   {option.label}
@@ -385,7 +386,7 @@ export default function UtilityBillFetcher({ bill, onClose }) {
         </div>
         {idSpec.areaCode && (
           <span className="mt-1 block text-xs text-ink/40">
-            U = Urban, R = Rural — printed after the reference no. on your bill. You can also type it, e.g. …406U.
+            U = Urban, R = Rural, printed after the reference no. on your bill. You can also type it, e.g. …406U.
           </span>
         )}
       </Field>
@@ -393,13 +394,25 @@ export default function UtilityBillFetcher({ bill, onClose }) {
       {idSpec.areaCode && !outcome && <OfficialBillLink meta={meta} reference={referenceDigits} areaCode={form.areaCode} />}
 
       <Field label="Label (optional)">
-        <Input value={form.title} onChange={set('title')} placeholder={`${meta.label} — Home`} maxLength={40} />
+        <Input value={form.title} onChange={set('title')} placeholder={`${meta.label} · Home`} maxLength={40} />
       </Field>
 
       {fetching && (
-        <div className="flex items-center gap-3 rounded-3xl border border-ink/10 bg-ink/5 p-4 text-sm text-ink/70" role="status">
-          <Loader2 size={18} className="animate-spin text-accent" />
-          Fetching the latest {meta.label} bill{isLiveProvider(form.provider) ? ' from the official PITC web bill' : ' (demo)'}…
+        <div className="space-y-4 rounded-xl border border-ink/10 bg-ink/5 p-4" role="status">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3 w-1/2" />
+              <Skeleton className="h-2.5 w-1/3" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Skeleton className="h-12 rounded-lg" />
+            <Skeleton className="h-12 rounded-lg" />
+          </div>
+          <p className="text-xs text-ink/55">
+            Fetching the latest {meta.label} bill{isLiveProvider(form.provider) ? ' from the official PITC web bill' : ' (demo)'}…
+          </p>
         </div>
       )}
 

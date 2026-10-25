@@ -289,7 +289,7 @@ export function FinanceProvider({ children }) {
         requireAccount(fromAccountId);
         requireAccount(toAccountId);
         if (fromAccountId === toAccountId) throw new Error('Choose two different accounts.');
-        if (date > todayISO()) throw new Error('Transfers move money now — pick today or an earlier date.');
+        if (date > todayISO()) throw new Error('Transfers move money now. Pick today or an earlier date.');
         const next = {
           type: 'transfer',
           amount: Number(amount),
@@ -381,7 +381,7 @@ export function FinanceProvider({ children }) {
         const amountPKR = billAmountPKR(bill, rates);
         if (!(amountPKR > 0)) throw new Error(`Enter the amount for ${bill.title} first.`);
         // Never deduct a made-up figure from a real wallet.
-        if (bill.source === 'demo') throw new Error(`${bill.title} has sample (demo) figures — enter the exact amount from your bill first.`);
+        if (bill.source === 'demo') throw new Error(`${bill.title} has sample (demo) figures. Enter the exact amount from your bill first.`);
 
         const txId = store.newId();
         const today = todayISO();
@@ -602,7 +602,7 @@ export function FinanceProvider({ children }) {
               amount: committee.contribution,
               category: 'commattie',
               accountId: committee.accountId,
-              note: `${committee.name} — installment ${installment}/${committee.members}`,
+              note: `${committee.name} · installment ${installment}/${committee.members}`,
               date: todayISO(),
               committeeId: committee.id,
               committeeEvent: 'installment',
@@ -631,7 +631,7 @@ export function FinanceProvider({ children }) {
               amount: pot,
               category: 'commattie_payout',
               accountId: committee.accountId,
-              note: `${committee.name} — payout`,
+              note: `${committee.name} · payout`,
               date: todayISO(),
               committeeId: committee.id,
               committeeEvent: 'payout',

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { PiggyBank } from 'lucide-react';
 import FitAmount from '../common/FitAmount';
-import GlassContainer from '../common/GlassContainer';
+import Panel from '../common/Panel';
 import TransferModal from '../accounts/TransferModal';
 import { useFinance } from '../../context/FinanceContext';
 import { PROJECTION_DAYS } from '../../utils/analytics';
@@ -23,9 +23,8 @@ export default function RealizedBalance() {
   const afterProjection = realizedBalance + projected.net;
 
   return (
-    <GlassContainer className="relative flex flex-col overflow-hidden p-4 [container-type:inline-size] sm:p-6">
-      <span className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#3987E5]/20 blur-3xl" />
-      <p className="text-xs text-ink/60 sm:text-sm">Current balance</p>
+    <Panel className="flex flex-col p-4 [container-type:inline-size] sm:p-6">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-ink/50 sm:text-xs">Current balance</p>
       <FitAmount className={cx('mt-1', realizedBalance < 0 ? 'text-red-600 dark:text-red-300' : 'text-ink')}>{formatCurrency(realizedBalance)}</FitAmount>
       <p className="mt-0.5 text-[11px] text-ink/40 sm:text-xs">Cleared · cash, bank & wallets</p>
 
@@ -40,7 +39,7 @@ export default function RealizedBalance() {
       </ul>
 
       {(projected.income > 0 || projected.expense > 0) && (
-        <div className="mt-3 rounded-xl bg-ink/5 px-2.5 py-2 text-[11px] text-ink/60" title={`Pending income and items due in the next ${PROJECTION_DAYS} days`}>
+        <div className="mt-3 rounded-lg bg-ink/5 px-2.5 py-2 text-[11px] text-ink/60" title={`Pending income and items due in the next ${PROJECTION_DAYS} days`}>
           <p className="font-medium text-ink/70">Projected · {PROJECTION_DAYS} days</p>
           {projected.income > 0 && <p className="text-accent">+{formatCurrency(projected.income)} expected</p>}
           {projected.expense > 0 && <p>−{formatCurrency(projected.expense)} due</p>}
@@ -59,6 +58,6 @@ export default function RealizedBalance() {
       </button>
 
       <TransferModal open={moving} toSavings onClose={() => setMoving(false)} />
-    </GlassContainer>
+    </Panel>
   );
 }

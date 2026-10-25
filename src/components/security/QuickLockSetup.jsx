@@ -26,10 +26,10 @@ function Toggle({ checked, onChange, disabled, label }) {
       onClick={() => onChange(!checked)}
       className={cx(
         'relative h-7 w-12 shrink-0 rounded-full transition disabled:opacity-50',
-        checked ? 'bg-gradient-to-r from-zen-lime to-zen-emerald' : 'bg-ink/20',
+        checked ? 'bg-accent' : 'bg-ink/20',
       )}
     >
-      <span className={cx('absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all', checked ? 'left-6' : 'left-1')} />
+      <span className={cx('absolute top-1 h-5 w-5 rounded-full bg-surface shadow-sm transition-all', checked ? 'left-6' : 'left-1')} />
     </button>
   );
 }
@@ -83,7 +83,7 @@ export default function QuickLockSetup() {
     if (flags?.tooShort || toSecret(value) !== first) {
       setFirst(null);
       setStep('enter');
-      return fail(method === 'pin' ? 'PINs didn’t match — start again.' : 'Patterns didn’t match — start again.');
+      return fail(method === 'pin' ? 'PINs didn’t match. Start again.' : 'Patterns didn’t match. Start again.');
     }
     setMessage(null);
     if (bioAvailable) setStep('biometric');
@@ -166,7 +166,7 @@ export default function QuickLockSetup() {
 
       {step === 'biometric' && (
         <div className="w-full space-y-4">
-          <div className="glass flex items-center gap-3 rounded-3xl border p-4 text-left">
+          <div className="panel flex items-center gap-3 rounded-2xl border p-4 text-left">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zen-lime/15 text-accent">
               <Fingerprint size={22} />
             </span>
@@ -178,7 +178,7 @@ export default function QuickLockSetup() {
           </div>
           <p className="text-[11px] leading-snug text-ink/45">
             Browsers reach the fingerprint / face sensor through passkeys, so your phone may show it as a passkey (e.g. in
-            Google Password Manager) named “WalletZen PIN unlock”. It only unlocks WalletZen on this device — it is not your
+            Google Password Manager) named “WalletZen PIN unlock”. It only unlocks WalletZen on this device and is not your
             Google password.
           </p>
           <Button size="lg" icon={ShieldCheck} className="w-full" loading={busy} onClick={() => finish()}>

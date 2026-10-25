@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, CalendarDays, Hourglass } from 'lucide-react';
-import GlassContainer from '../common/GlassContainer';
+import Panel from '../common/Panel';
 import IconCircle from '../common/IconCircle';
 import SegmentedControl from '../common/SegmentedControl';
 import { Input } from '../common/FormField';
@@ -28,16 +28,16 @@ const readPeriod = () => {
 
 function StatTile({ label, value, icon, color, hint, valueClass, className }) {
   return (
-    <GlassContainer className={cx('flex flex-col gap-3 p-4', className)}>
+    <Panel className={cx('flex flex-col gap-3 p-4', className)}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-ink/55">{label}</p>
         <IconCircle icon={icon} color={color} size={15} className="p-2" />
       </div>
       <div className="min-w-0">
-        <p className={cx('truncate text-xl font-bold tracking-tight tabular-nums', valueClass ?? 'text-ink')}>{value}</p>
+        <p className={cx('truncate font-display text-xl font-semibold tracking-tight tabular-nums', valueClass ?? 'text-ink')}>{value}</p>
         {hint && <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-ink/45">{hint}</p>}
       </div>
-    </GlassContainer>
+    </Panel>
   );
 }
 

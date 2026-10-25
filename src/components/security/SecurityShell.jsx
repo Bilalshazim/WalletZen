@@ -1,6 +1,6 @@
 import BrandLogo from '../common/BrandLogo';
 
-/** Full-screen glass layout shared by the lock screen and Quick Lock onboarding. */
+/** Full-screen layout shared by the lock screen and Quick Lock onboarding. */
 export default function SecurityShell({ title, subtitle, children, footer }) {
   return (
     <div
@@ -11,7 +11,7 @@ export default function SecurityShell({ title, subtitle, children, footer }) {
       <div className="mx-auto flex min-h-full max-w-sm flex-col items-center justify-center gap-6 px-6 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(2rem+env(safe-area-inset-top))] text-center">
         <BrandLogo className="h-14 w-auto" />
         <div>
-          <h1 className="text-xl font-bold text-ink">{title}</h1>
+          <h1 className="font-display text-2xl font-semibold text-ink">{title}</h1>
           {subtitle && <p className="mt-1 text-sm text-ink/60">{subtitle}</p>}
         </div>
         {children}

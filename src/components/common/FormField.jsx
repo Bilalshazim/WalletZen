@@ -2,8 +2,8 @@ import { ChevronDown } from 'lucide-react';
 import { cx } from '../../utils/formatters';
 
 const control =
-  'w-full rounded-2xl border border-ink/10 bg-ink/5 px-4 py-3 text-base text-ink placeholder:text-ink/30 sm:text-sm ' +
-  'outline-none transition focus:border-zen-lime/60 focus:bg-ink/[0.07] focus:ring-2 focus:ring-zen-lime/20';
+  'w-full rounded-xl border border-ink/10 bg-ink/5 px-4 py-3 text-base text-ink placeholder:text-ink/30 sm:text-sm ' +
+  'outline-none transition focus:border-accent/50 focus:bg-ink/[0.07] focus:ring-2 focus:ring-accent/15';
 
 export function Field({ label, hint, className, children }) {
   return (
@@ -45,7 +45,7 @@ export function AmountInput({ value, onChange, autoFocus, required = true, prefi
         placeholder="0"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full max-w-[14rem] bg-transparent text-center text-4xl font-bold text-ink outline-none placeholder:text-ink/20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+        className="w-full max-w-[14rem] bg-transparent text-center font-display text-4xl font-semibold text-ink outline-none placeholder:text-ink/20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
         aria-label="Amount"
       />
     </div>

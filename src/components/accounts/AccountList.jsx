@@ -55,7 +55,7 @@ export default function AccountList() {
             {Object.entries(ACCOUNT_TYPES).map(([type, meta]) => {
               const total = accounts.filter((a) => a.type === type).reduce((sum, a) => sum + a.balance, 0);
               return (
-                <div key={type} className="rounded-2xl bg-ink/5 p-3">
+                <div key={type} className="rounded-xl bg-ink/5 p-3">
                   <p className="flex items-center gap-1.5 text-xs text-ink/50">
                     <meta.icon size={13} style={{ color: meta.color }} /> {meta.label}
                   </p>

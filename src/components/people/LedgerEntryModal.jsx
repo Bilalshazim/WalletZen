@@ -27,7 +27,7 @@ function FormBody({ entry, contactId, defaultKind, defaultAmount, onClose }) {
   const kind = LEDGER_KINDS[form.kind];
 
   if (contacts.length === 0) {
-    return <p className="py-6 text-center text-sm text-ink/60">Add a contact first — every loan is tracked against a person.</p>;
+    return <p className="py-6 text-center text-sm text-ink/60">Add a contact first. Every loan is tracked against a person.</p>;
   }
 
   const submit = async (e) => {
@@ -57,7 +57,7 @@ function FormBody({ entry, contactId, defaultKind, defaultAmount, onClose }) {
             aria-checked={form.kind === id}
             onClick={() => set('kind')(id)}
             className={cx(
-              'rounded-2xl border px-3 py-2.5 text-left text-sm font-medium transition',
+              'rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition',
               form.kind === id ? 'border-zen-lime/60 bg-zen-lime/10 text-ink' : 'border-ink/10 bg-ink/5 text-ink/70 hover:bg-ink/10',
             )}
           >
@@ -80,7 +80,7 @@ function FormBody({ entry, contactId, defaultKind, defaultAmount, onClose }) {
 
       <Field
         label={kind.cash < 0 ? 'Paid from' : 'Received into'}
-        hint={form.accountId ? 'This account balance moves too.' : 'Only the ledger changes — no account balance moves.'}
+        hint={form.accountId ? 'This account balance moves too.' : 'Only the ledger changes. No account balance moves.'}
       >
         <Select value={form.accountId} onChange={(e) => set('accountId')(e.target.value)}>
           <option value="">Not linked to an account</option>
@@ -101,7 +101,7 @@ function FormBody({ entry, contactId, defaultKind, defaultAmount, onClose }) {
         </Field>
       </div>
 
-      <p className="text-xs text-ink/50">Debts are tracked separately — they never count as income or expenses.</p>
+      <p className="text-xs text-ink/50">Debts are tracked separately and never count as income or expenses.</p>
 
       <div className="flex gap-3 pt-1">
         {entry && <Button variant="danger" size="icon" icon={Trash2} onClick={remove} aria-label="Delete entry" disabled={busy} />}

@@ -47,7 +47,7 @@ function FormBody({ contact, defaultCategory, onClose, onSaved }) {
             aria-checked={form.category === id}
             onClick={() => setForm((prev) => ({ ...prev, category: id }))}
             className={cx(
-              'rounded-2xl border p-2.5 text-left transition',
+              'rounded-xl border p-2.5 text-left transition',
               form.category === id ? 'border-zen-lime/60 bg-zen-lime/10' : 'border-ink/10 bg-ink/5 hover:bg-ink/10',
             )}
           >
@@ -71,7 +71,7 @@ function FormBody({ contact, defaultCategory, onClose, onSaved }) {
         </Field>
       </div>
       <Field label="Note">
-        <Input value={form.note} onChange={set('note')} placeholder="Optional — bank details, relation…" maxLength={120} />
+        <Input value={form.note} onChange={set('note')} placeholder="Optional: bank details, relation…" maxLength={120} />
       </Field>
 
       <div className="flex gap-3 pt-1">

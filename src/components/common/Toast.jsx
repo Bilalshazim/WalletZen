@@ -26,10 +26,10 @@ export default function Toast() {
         key={toast.id}
         role="status"
         className={cx(
-          'pointer-events-auto flex animate-sheet-up items-center gap-2.5 rounded-full border px-4 py-2.5 text-sm shadow-xl backdrop-blur-md',
+          'pointer-events-auto flex animate-sheet-up items-center gap-2.5 rounded-xl border px-4 py-2.5 text-sm shadow-[0_6px_20px_-10px_rgb(0_0_0/0.3)]',
           toast.type === 'error'
             ? 'border-red-500/30 bg-red-50 text-red-700 dark:bg-red-950/80 dark:text-red-200'
-            : 'border-zen-lime/30 bg-surface/90 text-ink',
+            : 'border-ink/10 bg-surface text-ink',
         )}
       >
         <Icon size={16} className={toast.type === 'error' ? 'text-red-500 dark:text-red-400' : 'text-accent'} />

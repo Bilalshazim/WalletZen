@@ -36,7 +36,7 @@ function PersonRow({ contact, balance, onOpen }) {
       <button
         type="button"
         onClick={() => onOpen(contact.id)}
-        className="flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition hover:bg-ink/5"
+        className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition hover:bg-ink/5"
       >
         <ContactAvatar contact={contact} />
         <div className="min-w-0 flex-1">
@@ -65,7 +65,7 @@ function Section({ title, total, tone, people, balances, onOpen, empty }) {
           ))}
         </ul>
       ) : (
-        <p className="rounded-2xl bg-ink/5 px-3 py-3 text-center text-xs text-ink/45">{empty}</p>
+        <p className="rounded-xl bg-ink/5 px-3 py-3 text-center text-xs text-ink/45">{empty}</p>
       )}
     </section>
   );
@@ -97,7 +97,7 @@ export default function PeopleDirectory() {
   return (
     <Card
       title="Receivables & payables"
-      subtitle="Money people owe you and you owe them — not counted as income or expenses"
+      subtitle="Money people owe you and you owe them, kept out of income and expenses"
       action={
         <Button size="sm" variant="secondary" icon={UserRoundPlus} onClick={() => setNewContact(true)} aria-label="Add contact">
           <span className="hidden min-[380px]:inline">Contact</span>
@@ -105,14 +105,14 @@ export default function PeopleDirectory() {
       }
     >
       <div className="mb-4 grid grid-cols-2 gap-2">
-        <button type="button" onClick={() => setAdding('receivable')} className="rounded-2xl border border-zen-lime/25 bg-zen-lime/10 p-3 text-left transition hover:bg-zen-lime/15">
+        <button type="button" onClick={() => setAdding('receivable')} className="rounded-xl border border-zen-lime/25 bg-zen-lime/10 p-3 text-left transition hover:bg-zen-lime/15">
           <p className="flex items-center gap-1 text-xs text-ink/55">
             <ArrowDownLeft size={13} className="text-accent" /> Receivable
           </p>
           <p className="mt-1 text-base font-bold tabular-nums text-accent">{formatCurrency(receivable)}</p>
           <p className="mt-1 text-[11px] font-medium text-accent">+ Add receivable</p>
         </button>
-        <button type="button" onClick={() => setAdding('payable')} className="rounded-2xl border border-orange-500/25 bg-orange-500/10 p-3 text-left transition hover:bg-orange-500/15">
+        <button type="button" onClick={() => setAdding('payable')} className="rounded-xl border border-orange-500/25 bg-orange-500/10 p-3 text-left transition hover:bg-orange-500/15">
           <p className="flex items-center gap-1 text-xs text-ink/55">
             <ArrowUpRight size={13} className="text-orange-600 dark:text-orange-300" /> Payable
           </p>

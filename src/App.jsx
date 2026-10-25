@@ -6,6 +6,8 @@ import QuickLockSetup from './components/security/QuickLockSetup';
 import SettingsModal from './components/common/SettingsModal';
 import BottomNav, { TABS } from './components/common/BottomNav';
 import Toast from './components/common/Toast';
+import AppFooter from './components/common/AppFooter';
+import { AppSkeleton } from './components/common/Skeleton';
 import Header from './components/dashboard/Header';
 import NetWorthSummary from './components/dashboard/NetWorthSummary';
 import RealizedBalance from './components/dashboard/RealizedBalance';
@@ -63,7 +65,7 @@ export default function App() {
   };
 
   if (loading || busyMessage) return <FullScreenLoader message={busyMessage} />;
-  // While locked, render nothing but the lock screen — no financial data in the page.
+  // While locked, render nothing but the lock screen: no financial data in the page.
   if (locked) {
     return (
       <>
@@ -73,7 +75,7 @@ export default function App() {
       </>
     );
   }
-  if (!ready) return <FullScreenLoader />;
+  if (!ready) return <AppSkeleton tab={tab} />;
 
   return (
     <>
@@ -118,6 +120,8 @@ export default function App() {
             <CommattieTracker />
           </>
         )}
+
+        <AppFooter />
       </main>
 
       <BottomNav active={tab} onSelect={navigate} onQuickAdd={() => setQuickAdd(true)} />

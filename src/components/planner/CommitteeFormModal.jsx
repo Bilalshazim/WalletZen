@@ -79,7 +79,7 @@ function FormBody({ committee, onClose }) {
         </Select>
       </Field>
 
-      <p className="rounded-2xl bg-zen-lime/10 px-4 py-3 text-sm text-ink/80">
+      <p className="rounded-xl bg-zen-lime/10 px-4 py-3 text-sm text-ink/80">
         Total payout: <span className="font-semibold text-accent">{formatCurrency(pot)}</span>
       </p>
 

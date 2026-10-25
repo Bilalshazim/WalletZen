@@ -33,13 +33,13 @@ const AUTH_ERRORS = {
   'auth/unauthorized-domain': 'This domain is not authorized in Firebase (Authentication → Settings → Authorized domains).',
   'auth/billing-not-enabled': 'SMS sign-in needs billing enabled on the Firebase project.',
   'auth/captcha-check-failed': 'reCAPTCHA check failed. Reload the page and try again.',
-  'auth/network-request-failed': 'Network error — are you online?',
+  'auth/network-request-failed': 'Network error. Are you online?',
 };
 export function authErrorMessage(error) {
   const code = error?.code ?? '';
   if (AUTH_ERRORS[code]) return AUTH_ERRORS[code];
   if (code.startsWith('auth/api-key-not-valid') || code === 'auth/invalid-api-key') {
-    return 'Firebase rejected the API key — check VITE_FIREBASE_API_KEY in .env.local.';
+    return 'Firebase rejected the API key. Check VITE_FIREBASE_API_KEY in .env.local.';
   }
   // Unmapped Firebase errors read like "Firebase: Error (auth/xyz)." — show the code without the noise.
   const message = (error?.message ?? 'Sign-in failed.').replace(/^Firebase:\s*/, '');
@@ -191,7 +191,7 @@ export function AuthProvider({ children }) {
         );
       } else if (code === 'auth/invalid-api-key' || code.startsWith('auth/api-key-not-valid')) {
         // Retrying with other values can't help: Google rejected this exact key, so point at the fix instead.
-        notify('error', 'Firebase rejected the API key — copy apiKey again from Firebase Console → Project settings → Your apps, update .env.local and restart npm run dev.');
+        notify('error', 'Firebase rejected the API key. Copy apiKey again from Firebase Console → Project settings → Your apps, update .env.local and restart npm run dev.');
         console.error('[WalletZen] Firebase API key rejected by Google (API_KEY_INVALID). The key in VITE_FIREBASE_API_KEY is mistyped, deleted, or from another project.');
       } else if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
         throw error;

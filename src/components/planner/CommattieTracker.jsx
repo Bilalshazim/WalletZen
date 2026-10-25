@@ -3,7 +3,7 @@ import { HandCoins, Plus, Trophy, Users } from 'lucide-react';
 import Button from '../common/Button';
 import Card from '../common/Card';
 import EmptyState from '../common/EmptyState';
-import GlassContainer from '../common/GlassContainer';
+import Panel from '../common/Panel';
 import CommitteeFormModal from './CommitteeFormModal';
 import StatusTag from './StatusTag';
 import { useFinance } from '../../context/FinanceContext';
@@ -27,7 +27,7 @@ function CommitteeCard({ committee, accountName, onEdit }) {
   };
 
   return (
-    <GlassContainer className="p-4">
+    <Panel className="p-4">
       <button type="button" onClick={() => onEdit(committee)} className="flex w-full items-start justify-between gap-3 text-left">
         <div className="min-w-0">
           <p className="truncate font-semibold text-ink">{name}</p>
@@ -49,7 +49,7 @@ function CommitteeCard({ committee, accountName, onEdit }) {
           <span>{Math.round(progress)}%</span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-ink/10">
-          <div className="h-full rounded-full bg-gradient-to-r from-zen-lime to-zen-emerald transition-all" style={{ width: `${progress}%` }} />
+          <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress}%` }} />
         </div>
       </div>
 
@@ -88,7 +88,7 @@ function CommitteeCard({ committee, accountName, onEdit }) {
         )}
         {complete && received && <p className="text-xs text-accent">Commattie completed 🎉</p>}
       </div>
-    </GlassContainer>
+    </Panel>
   );
 }
 

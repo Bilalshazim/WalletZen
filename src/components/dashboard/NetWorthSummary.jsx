@@ -1,5 +1,5 @@
 import FitAmount from '../common/FitAmount';
-import GlassContainer from '../common/GlassContainer';
+import Panel from '../common/Panel';
 import { useFinance } from '../../context/FinanceContext';
 import { cx, formatCurrency } from '../../utils/formatters';
 
@@ -15,9 +15,8 @@ export default function NetWorthSummary() {
   const barTotal = parts.reduce((sum, p) => sum + Math.abs(p.value), 0);
 
   return (
-    <GlassContainer className="relative flex flex-col overflow-hidden p-4 [container-type:inline-size] sm:p-6">
-      <span className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-zen-lime/20 blur-3xl" />
-      <p className="text-xs text-ink/60 sm:text-sm">Net worth</p>
+    <Panel className="flex flex-col p-4 [container-type:inline-size] sm:p-6">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-ink/50 sm:text-xs">Net worth</p>
       <FitAmount className={cx('mt-1', netWorth < 0 ? 'text-red-600 dark:text-red-300' : 'text-ink')}>{formatCurrency(netWorth)}</FitAmount>
       <p className="mt-0.5 text-[11px] text-ink/40 sm:text-xs">Savings + receivables − debts</p>
 
@@ -41,6 +40,6 @@ export default function NetWorthSummary() {
           ))}
         </ul>
       </div>
-    </GlassContainer>
+    </Panel>
   );
 }

@@ -39,7 +39,7 @@ export default function QuickLockSettings({ onNavigate }) {
   };
 
   return (
-    <section className="space-y-3 rounded-2xl border border-ink/10 p-4">
+    <section className="space-y-3 rounded-xl border border-ink/10 p-4">
       <div className="flex items-center gap-3">
         <span className={cx('flex h-10 w-10 items-center justify-center rounded-full', enabled ? 'bg-zen-lime/15 text-accent' : 'bg-ink/10 text-ink/50')}>
           {enabled ? <Lock size={18} /> : <LockOpen size={18} />}
@@ -49,7 +49,7 @@ export default function QuickLockSettings({ onNavigate }) {
           <p className="text-xs text-ink/55">
             {enabled
               ? `${config.method === 'pattern' ? 'Pattern' : '4-digit PIN'}${config.biometric ? ` + ${biometricLabel()}` : ''} · locks after 30 s in background`
-              : 'Off — anyone with this device can open the app'}
+              : 'Off. Anyone with this device can open the app'}
           </p>
         </div>
       </div>

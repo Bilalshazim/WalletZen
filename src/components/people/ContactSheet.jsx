@@ -69,7 +69,7 @@ function SheetBody({ contact }) {
         </Button>
       </div>
 
-      <div className="rounded-2xl bg-ink/5 p-4">
+      <div className="rounded-xl bg-ink/5 p-4">
         <p className="text-xs text-ink/50">Balance</p>
         <p className={cx('text-2xl font-extrabold tabular-nums', status.className)}>{status.text}</p>
         {routine.count > 0 && (

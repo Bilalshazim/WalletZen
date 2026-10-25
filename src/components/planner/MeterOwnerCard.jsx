@@ -29,7 +29,7 @@ export default function MeterOwnerCard({ bill, owner: fetchedOwner, reference })
   const sourceLabel = bill?.ownerSource === 'live' || (!bill && fetchedOwner) ? 'From bill service' : owner ? 'Added by you' : null;
 
   return (
-    <section className="space-y-2 rounded-2xl border border-ink/10 p-3" aria-label="Meter owner">
+    <section className="space-y-2 rounded-xl border border-ink/10 p-3" aria-label="Meter owner">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium uppercase tracking-wide text-ink/50">Meter owner</p>
         <div className="flex items-center gap-2">
@@ -87,7 +87,7 @@ export default function MeterOwnerCard({ bill, owner: fetchedOwner, reference })
       ) : (
         <div className="space-y-2">
           <p className="text-xs text-ink/55">
-            The owner's name and address are printed on the bill. {bill?.source === 'demo' || !bill ? 'The demo service can’t read them' : 'They weren’t provided'} —
+            The owner's name and address are printed on the bill. {bill?.source === 'demo' || !bill ? 'The demo service can’t read them' : 'They weren’t provided'}, so
             add them once and they'll stay with this reference.
           </p>
           {bill && (

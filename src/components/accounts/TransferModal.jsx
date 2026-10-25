@@ -78,7 +78,7 @@ function FormBody({ transfer, toSavings, onClose }) {
           <Input value={form.note} onChange={(e) => set('note')(e.target.value)} placeholder="Optional" maxLength={80} />
         </Field>
       </div>
-      <p className="text-xs text-ink/50">Moves money between your own accounts — not counted as income or expense.</p>
+      <p className="text-xs text-ink/50">Moves money between your own accounts. Not counted as income or expense.</p>
       <div className="flex gap-3 pt-1">
         {transfer && <Button variant="danger" size="icon" icon={Trash2} onClick={remove} aria-label="Delete transfer" disabled={busy} />}
         <Button type="submit" size="lg" className="flex-1" loading={busy}>

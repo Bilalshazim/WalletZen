@@ -49,7 +49,7 @@ function FormBody({ account, defaultType, onClose }) {
             onClick={() => setForm((prev) => ({ ...prev, type: id }))}
             aria-pressed={form.type === id}
             className={cx(
-              'flex items-center gap-2.5 rounded-2xl border p-3 text-left text-sm transition',
+              'flex items-center gap-2.5 rounded-xl border p-3 text-left text-sm transition',
               form.type === id ? 'border-zen-lime/60 bg-zen-lime/10 text-ink' : 'border-ink/10 bg-ink/5 text-ink/70 hover:bg-ink/10',
             )}
           >

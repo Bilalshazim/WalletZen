@@ -25,7 +25,7 @@ const kindOf = (bill) => bill.kind ?? 'bill';
 
 function Stat({ label, value, tone = 'text-ink' }) {
   return (
-    <div className="rounded-2xl bg-ink/5 p-3">
+    <div className="rounded-xl bg-ink/5 p-3">
       <p className="text-[11px] text-ink/50">{label}</p>
       <p className={`mt-0.5 text-sm font-semibold tabular-nums ${tone}`}>{value}</p>
     </div>
@@ -107,12 +107,12 @@ export default function SubscriptionsPlanner() {
       <SegmentedControl options={VIEWS} value={view} onChange={setView} size="sm" className="mb-3" />
 
       {view === 'utility' && (
-        <div className="mb-3 flex items-center gap-3 rounded-2xl bg-ink/5 p-3 text-xs text-ink/60">
+        <div className="mb-3 flex items-center gap-3 rounded-xl bg-ink/5 p-3 text-xs text-ink/60">
           <PlugZap size={16} className={BILL_API_MODE === 'live' ? 'text-accent' : 'text-sky-600 dark:text-sky-300'} />
           <p className="flex-1">
             {BILL_API_MODE === 'live'
               ? 'Live electricity bills (LESCO, FESCO, IESCO…) from the official PITC web bill: tap Add → Utility bill → Fetch Latest Bill. Pending bills refresh every 12 hours. Gas, PTCL and internet are still demo.'
-              : 'Demo mode: fetched bills are sample data (tagged Demo). Connect the WalletZen API for real electricity bills — see README.'}
+              : 'Demo mode: fetched bills are sample data (tagged Demo). Connect the WalletZen API for real electricity bills (see README).'}
           </p>
           {bills.some((b) => b.kind === 'utility' && b.status === 'pending') && (
             <Button size="sm" variant="secondary" icon={RefreshCw} loading={syncing} onClick={checkNow}>

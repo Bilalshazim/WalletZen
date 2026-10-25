@@ -51,7 +51,7 @@ function FormBody({ defaultDirection, contactId, onClose }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <SegmentedControl
-        options={DIRECTION_OPTIONS.map((o) => (o.value === 'payable' ? { ...o, activeClass: 'bg-orange-500/90 text-white shadow-md' } : o))}
+        options={DIRECTION_OPTIONS.map((o) => (o.value === 'payable' ? { ...o, activeClass: 'bg-orange-500/15 text-orange-700 ring-1 ring-orange-500/25 dark:text-orange-300' } : o))}
         value={form.direction}
         onChange={set('direction')}
       />
@@ -83,7 +83,7 @@ function FormBody({ defaultDirection, contactId, onClose }) {
         hint={
           form.accountId
             ? `${isReceivable ? 'Taken from' : 'Added to'} this account's balance.`
-            : 'No — just record what is owed. No account balance changes.'
+            : 'No, just record what is owed. No account balance changes.'
         }
       >
         <Select value={form.accountId} onChange={(e) => set('accountId')(e.target.value)}>

@@ -10,7 +10,7 @@ import { ACCOUNT_TYPES, CATEGORY_GROUPS, EXPENSE_CATEGORIES, INCOME_CATEGORIES }
 import { formatCurrency, todayISO } from '../../utils/formatters';
 
 const TYPE_OPTIONS = [
-  { value: 'expense', label: 'Expense', activeClass: 'bg-rose-500/90 text-white shadow-md' },
+  { value: 'expense', label: 'Expense', activeClass: 'bg-rose-500/15 text-rose-700 ring-1 ring-rose-500/25 dark:text-rose-300' },
   { value: 'income', label: 'Income' },
 ];
 
@@ -54,7 +54,7 @@ function FormBody({ transaction, defaultType, onClose }) {
   };
 
   if (accounts.length === 0) {
-    return <p className="py-6 text-center text-sm text-ink/60">Add an account first — every entry is linked to one.</p>;
+    return <p className="py-6 text-center text-sm text-ink/60">Add an account first. Every entry is linked to one.</p>;
   }
 
   const categoryChips = (entries) =>
@@ -132,7 +132,7 @@ function FormBody({ transaction, defaultType, onClose }) {
         />
         <p className="text-xs text-ink/50">
           {pending
-            ? `${future ? 'Future date — ' : ''}Shown as projected. Your balance won't change until you mark it ${isIncome ? 'received' : 'paid'}.`
+            ? `${future ? 'Future date. ' : ''}Shown as projected. Your balance won't change until you mark it ${isIncome ? 'received' : 'paid'}.`
             : `Counts in your current balance now.`}
         </p>
       </div>
