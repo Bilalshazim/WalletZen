@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, CalendarDays, Hourglass } from 'lucide-react';
+import { motion } from 'framer-motion';
 import Panel from '../common/Panel';
 import IconCircle from '../common/IconCircle';
 import SegmentedControl from '../common/SegmentedControl';
@@ -7,6 +8,7 @@ import { Input } from '../common/FormField';
 import { useFinance } from '../../context/FinanceContext';
 import { periodRange, PROJECTION_DAYS, rangeSummary } from '../../utils/analytics';
 import { cx, formatCurrency, formatDate, todayISO } from '../../utils/formatters';
+import { STAGGER_CARD_VARIANTS, STAGGER_CONTAINER_VARIANTS } from '../../utils/motion';
 
 const PERIODS = [
   { value: 'month', label: 'This month' },
@@ -28,7 +30,7 @@ const readPeriod = () => {
 
 function StatTile({ label, value, icon, color, hint, valueClass, className }) {
   return (
-    <Panel className={cx('flex flex-col gap-3 p-4', className)}>
+    <Panel as={motion.div} variants={STAGGER_CARD_VARIANTS} className={cx('flex flex-col gap-3 p-4', className)}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-ink/55">{label}</p>
         <IconCircle icon={icon} color={color} size={15} className="p-2" />
@@ -102,7 +104,7 @@ export default function StatsGrid() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <motion.div variants={STAGGER_CONTAINER_VARIANTS} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile
           label="Spent today"
           value={formatCurrency(stats.todays.expense)}
@@ -137,7 +139,7 @@ export default function StatsGrid() {
               : `Nothing expected · period net ${formatCurrency(net, { sign: true })}`
           }
         />
-      </div>
+      </motion.div>
     </section>
   );
 }

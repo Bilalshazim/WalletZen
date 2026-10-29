@@ -42,6 +42,26 @@
     overscroll-behavior-y: none;
   }
 
+  /* No 300ms tap delay or accidental text selection on touch controls. */
+  button,
+  a,
+  [role='tab'] {
+    touch-action: manipulation;
+  }
+
+  button,
+  [role='tab'] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
   body {
     @apply min-h-dvh font-sans text-ink antialiased;
     overflow-x: hidden;

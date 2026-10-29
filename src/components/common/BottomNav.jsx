@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { CalendarClock, LayoutDashboard, Plus, ReceiptText, WalletCards } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { cx } from '../../utils/formatters';
+import { SNAPPY_TAB_SPRING, TAP_SCALE } from '../../utils/motion';
 
 export const TABS = [
   { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
@@ -46,18 +48,22 @@ function useHideOnScroll() {
 function NavButton({ tab, active, onSelect }) {
   const Icon = tab.icon;
   return (
-    <button
+    <motion.button
       type="button"
       onClick={() => onSelect(tab.id)}
       aria-current={active ? 'page' : undefined}
+      whileTap={TAP_SCALE}
       className={cx(
-        'flex flex-1 flex-col items-center gap-0.5 rounded-xl py-2 text-[10px] font-medium transition',
+        'relative flex flex-1 flex-col items-center gap-0.5 rounded-xl py-2 text-[10px] font-medium transition-colors',
         active ? 'text-accent' : 'text-ink/50 hover:text-ink',
       )}
     >
-      <Icon size={20} strokeWidth={active ? 2.4 : 2} />
-      {tab.label}
-    </button>
+      {active && (
+        <motion.span layoutId="activeTabPill" transition={SNAPPY_TAB_SPRING} className="absolute inset-0 rounded-xl bg-accent/10" />
+      )}
+      <Icon size={20} strokeWidth={active ? 2.4 : 2} className="relative" />
+      <span className="relative">{tab.label}</span>
+    </motion.button>
   );
 }
 
@@ -76,14 +82,15 @@ export default function BottomNav({ active, onSelect, onQuickAdd }) {
       <div className="mx-auto flex max-w-md items-center gap-1 rounded-2xl border border-ink/10 bg-surface px-2 py-1.5 shadow-[0_8px_24px_-12px_rgb(0_0_0/0.25)]">
         <NavButton tab={first} active={active === first.id} onSelect={onSelect} />
         <NavButton tab={second} active={active === second.id} onSelect={onSelect} />
-        <button
+        <motion.button
           type="button"
           onClick={onQuickAdd}
           aria-label="Add transaction"
-          className="-mt-7 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent text-surface shadow-sm ring-4 ring-surface transition hover:bg-accent/90 active:scale-95"
+          whileTap={TAP_SCALE}
+          className="-mt-7 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent text-surface shadow-sm ring-4 ring-surface transition-colors hover:bg-accent/90"
         >
           <Plus size={26} strokeWidth={2.6} />
-        </button>
+        </motion.button>
         <NavButton tab={third} active={active === third.id} onSelect={onSelect} />
         <NavButton tab={fourth} active={active === fourth.id} onSelect={onSelect} />
       </div>

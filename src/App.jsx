@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import LoginModal from './components/common/LoginModal';
 import LockScreen from './components/security/LockScreen';
 import QuickLockSetup from './components/security/QuickLockSetup';
@@ -27,6 +28,7 @@ import BulkScreenshotScanner from './components/scanner/BulkScreenshotScanner';
 import { useAuth } from './context/AuthContext';
 import { useFinance } from './context/FinanceContext';
 import { useLock } from './context/LockContext';
+import { STAGGER_CARD_VARIANTS, STAGGER_CONTAINER_VARIANTS, WEB_APP_SLIDE_VARIANTS } from './utils/motion';
 
 const TAB_IDS = TABS.map((t) => t.id);
 const tabFromHash = () => {
@@ -40,6 +42,24 @@ function FullScreenLoader({ message }) {
       <Loader2 size={28} className="animate-spin text-accent" />
       {message && <p className="text-sm text-ink/60">{message}</p>}
     </div>
+  );
+}
+
+/** One block in a tab view; enters 30ms after the previous one. */
+function Item(props) {
+  return <motion.div variants={STAGGER_CARD_VARIANTS} {...props} />;
+}
+
+/** Slides the active tab in and out (one at a time), then staggers its blocks. min-h keeps the footer from jumping. */
+function TabView({ tab, children }) {
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div key={tab} variants={WEB_APP_SLIDE_VARIANTS} initial="initial" animate="animate" exit="exit" className="min-h-[60dvh]">
+        <motion.div variants={STAGGER_CONTAINER_VARIANTS} initial="hidden" animate="show" className="space-y-5">
+          {children}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -82,44 +102,46 @@ export default function App() {
       <main className="mx-auto max-w-5xl space-y-5 px-4 pb-32 pt-[calc(1.25rem+env(safe-area-inset-top))]">
         <Header onOpenSettings={openSettings} />
 
-        {tab === 'dashboard' && (
-          <>
-            <div className="grid grid-cols-2 gap-3 sm:gap-5 [&>*]:min-w-0">
-              <RealizedBalance />
-              <NetWorthSummary />
-            </div>
-            <StatsGrid />
-            <DebtsOverview onShowAll={() => navigate('accounts')} />
-            <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
-              <CashFlowChart />
-              <SpendingDonut />
-            </div>
-            <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
-              <UpcomingExpenses limit={4} onShowAll={() => navigate('planner')} />
-              <TransactionHistory limit={5} onShowAll={() => navigate('transactions')} />
-            </div>
-          </>
-        )}
+        <TabView tab={tab}>
+          {tab === 'dashboard' && (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:gap-5 [&>*]:min-w-0">
+                <Item><RealizedBalance /></Item>
+                <Item><NetWorthSummary /></Item>
+              </div>
+              <Item><StatsGrid /></Item>
+              <Item><DebtsOverview onShowAll={() => navigate('accounts')} /></Item>
+              <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
+                <Item><CashFlowChart /></Item>
+                <Item><SpendingDonut /></Item>
+              </div>
+              <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
+                <Item><UpcomingExpenses limit={4} onShowAll={() => navigate('planner')} /></Item>
+                <Item><TransactionHistory limit={5} onShowAll={() => navigate('transactions')} /></Item>
+              </div>
+            </>
+          )}
 
-        {tab === 'accounts' && (
-          <>
-            <AccountList />
-            <PeopleDirectory />
-          </>
-        )}
-        {tab === 'transactions' && (
-          <>
-            <BulkScreenshotScanner />
-            <TransactionHistory />
-          </>
-        )}
+          {tab === 'accounts' && (
+            <>
+              <Item><AccountList /></Item>
+              <Item><PeopleDirectory /></Item>
+            </>
+          )}
+          {tab === 'transactions' && (
+            <>
+              <Item><BulkScreenshotScanner /></Item>
+              <Item><TransactionHistory /></Item>
+            </>
+          )}
 
-        {tab === 'planner' && (
-          <>
-            <SubscriptionsPlanner />
-            <CommattieTracker />
-          </>
-        )}
+          {tab === 'planner' && (
+            <>
+              <Item><SubscriptionsPlanner /></Item>
+              <Item><CommattieTracker /></Item>
+            </>
+          )}
+        </TabView>
 
         <AppFooter />
       </main>
